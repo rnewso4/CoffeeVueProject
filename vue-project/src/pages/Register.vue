@@ -29,7 +29,7 @@
         errorMessage.value = ''
         try {
             await createUserWithEmailAndPassword(auth, email.value, password.value)
-            router.push('/')
+            router.push('/home')
         } catch (err) {
             let code = ''
             if (err && typeof err === 'object' && 'code' in err) {
