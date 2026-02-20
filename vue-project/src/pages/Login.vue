@@ -81,6 +81,9 @@
                 </div>
             </v-form>
         </div>
+        <div id="image_container">
+            <img id="cafe-image" src="@/assets/images/cafe_svg.png" alt="Cafe Imafe" />
+        </div>
     </div>
 </template>
 
@@ -90,6 +93,19 @@
     src: url('@/assets/fonts/CarterOne.ttf') format('truetype');
     font-weight: normal;
     font-style: normal;
+}
+
+#image_container {
+    object-fit: contain;
+    display: flex;
+    align-items: end;
+    justify-content: center;
+    overflow: hidden;
+    max-height: 100vh;
+}
+
+#cafe-image {
+    width: 800px;
 }
 
 #signup {
