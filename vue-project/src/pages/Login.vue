@@ -3,6 +3,7 @@
     import { useRouter } from 'vue-router'
     import { signInWithEmailAndPassword } from 'firebase/auth'
     import { auth } from '@/firebase'
+    import { coffeeColor } from '@/variables'
 
     const router = useRouter()
 
@@ -138,7 +139,7 @@
     grid-template-columns: 1fr 1fr;
 }
 #left {
-    background-color: #FFF4E6;
+    background-color: v-bind(coffeeColor);
     display: flex;
     flex-direction: column;
     align-items: center;

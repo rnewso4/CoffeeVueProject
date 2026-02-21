@@ -1,0 +1,1 @@
+export const coffeeColor = "#FFF4E6";

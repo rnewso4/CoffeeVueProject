@@ -1,9 +1,21 @@
-<script setup></script>
+<script setup>
+import Navbar from './Navbar.vue';
+import { coffeeColor } from '@/variables';
+</script>
 
 <template>
   <div>
-    <h1>Home</h1>
+    <navbar />
+    <div id="temp">
+      <h1>Home</h1>
+    </div>
   </div>
 </template>
 
-<style scoped></style>
+<style scoped>
+#temp{
+  background-color: v-bind(coffeeColor);
+  height: 120vh;
+  width: 100%;
+}
+</style>

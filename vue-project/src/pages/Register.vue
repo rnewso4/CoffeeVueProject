@@ -3,6 +3,7 @@
     import { useRouter } from 'vue-router'
     import { createUserWithEmailAndPassword } from 'firebase/auth'
     import { auth } from '@/firebase'
+    import { coffeeColor } from '@/variables'
 
     const router = useRouter()
 
@@ -107,7 +108,7 @@
     margin-bottom: 30px;
 }
 #main {
-    background-color: #FFF4E6;
+    background-color: v-bind(coffeeColor);
     height: 100%;
     width: 100%;
     display: flex;
