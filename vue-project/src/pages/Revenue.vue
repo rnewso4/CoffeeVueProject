@@ -6,14 +6,21 @@
     <div id="text">
         <h2 id="revenue">Revenues</h2>
     </div>
-    <!-- <div id="buttons">
-        <div id="add"></div>
-        <div id="menu"></div>
-    </div> -->
+    <div id="add">
+        <v-btn prepend-icon="mdi-plus-circle" variant="text" color="#CF761E" class="add-btn" density="comfortable">Add</v-btn>
+    </div>
  </div>
 </template>
 
 <style scoped>
+.add-btn {
+    font-weight: bold;
+}
+#add {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
 #block {
     height: 50px;
     margin-right: 30px;

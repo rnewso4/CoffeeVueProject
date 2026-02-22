@@ -2,7 +2,8 @@
     import { ref } from 'vue'
     import { useRouter } from 'vue-router'
     import { createUserWithEmailAndPassword } from 'firebase/auth'
-    import { auth } from '@/firebase'
+    import { collection, doc, setDoc, serverTimestamp } from 'firebase/firestore'
+    import { auth, db } from '@/firebase'
     import { coffeeColor } from '@/variables'
 
     const router = useRouter()
@@ -29,7 +30,15 @@
         loading.value = true
         errorMessage.value = ''
         try {
-            await createUserWithEmailAndPassword(auth, email.value, password.value)
+            const userCredential = await createUserWithEmailAndPassword(auth, email.value, password.value)
+            const user = userCredential.user
+
+            await setDoc(doc(db, 'users', user.uid), {
+                email: user.email,
+                fullName: fullName.value || '',
+                createdAt: serverTimestamp()
+            })
+
             router.push('/home')
         } catch (err) {
             let code = ''
