@@ -5,6 +5,7 @@
     import { collection, doc, setDoc, serverTimestamp } from 'firebase/firestore'
     import { auth, db } from '@/firebase'
     import { coffeeColor } from '@/variables'
+    import { setInitials } from '@/functions/functions'
 
     const router = useRouter()
 
@@ -38,6 +39,8 @@
                 fullName: fullName.value || '',
                 createdAt: serverTimestamp()
             })
+
+            setInitials(fullName.value || "")
 
             router.push('/home')
         } catch (err) {

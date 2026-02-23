@@ -1,7 +1,5 @@
 <script setup>
-    import { ref } from 'vue'
-    const initials = ref('YN')
-    
+    import { initials } from '@/functions/functions'
 </script>
 
 <template>
@@ -22,7 +20,7 @@
         </div>
         <div id="profile">
             <div id="circle">
-                <h1 id="initials">{{ initials }}</h1>
+                <h1 id="initials">{{ initials || 'JD' }}</h1>
             </div>
         </div>
     </div>

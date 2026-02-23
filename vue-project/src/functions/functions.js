@@ -70,3 +70,20 @@ export const sort = (list) => {
     }
     return sort_by_days()
 }
+
+import { ref } from 'vue'
+
+export const initials = ref('')
+
+export const setInitials = (fullName) => {
+    let result = ''
+    const name_array = fullName && fullName.trim() && fullName.split(" ").filter(Boolean)
+
+    if (name_array && name_array.length > 1) result = name_array[0][0] + name_array[1][0]
+    else if (name_array && name_array[0].length > 1) result = name_array[0][0] + name_array[0][1]
+    else if (name_array && name_array[0].length === 1) result = name_array[0][0]
+
+    initials.value = result.toUpperCase()
+}
+
+export const getInitials = () => initials.value
