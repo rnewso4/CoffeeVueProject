@@ -14,9 +14,11 @@
     "firebase": "^12.9.0",
     "vue": "^3.5.28",
     "vue-router": "^5.0.2",
+    "vue3-snackbar": "^2.5.2",
     "vuefire": "^3.2.2"
   },
   "devDependencies": {
+    "@rollup/plugin-dsv": "^3.0.5",
     "@vitejs/plugin-vue": "^6.0.4",
     "prettier": "3.8.1",
     "vite": "^7.3.1",

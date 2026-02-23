@@ -115,6 +115,7 @@
     font-weight: normal;
     font-size: 1.5rem;
     margin-bottom: 30px;
+    padding-left: 5px;
 }
 #main {
     background-color: v-bind(coffeeColor);

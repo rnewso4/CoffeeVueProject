@@ -6,11 +6,14 @@ import router from './router'
 import vuetify from './plugins/vuetify'
 import { VueFire, VueFireAuth } from 'vuefire'
 import { firebaseApp } from './firebase'
+import { SnackbarService, Vue3Snackbar } from "vue3-snackbar";
+import "vue3-snackbar/styles";
 
 const app = createApp(App)
 
 app.use(router)
 app.use(vuetify)
+app.use(SnackbarService);
 app.use(VueFire, {
     // imported above but could also just be created here
     firebaseApp,
@@ -19,5 +22,5 @@ app.use(VueFire, {
       VueFireAuth(),
     ],
   })
-
+app.component("vue3-snackbar", Vue3Snackbar);
 app.mount('#app')

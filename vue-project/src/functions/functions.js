@@ -1,0 +1,72 @@
+export const sort = (list) => {
+    const sort_by_years = () => {
+        list.sort((a, b) => {
+            return parseInt(a.date.split("/")[2]) - parseInt(b.date.split("/")[2])
+        })
+    }
+
+    sort_by_years();
+
+    let years = [[]]
+    const sort_by_months = () => {
+        let temp_year = 0
+        for (let i = 0, j = 0, curr_year = 0; i < list.length; i++) {
+            if (i == 0) {
+                curr_year = parseInt(list[0].date.split("/")[2])
+                years[0].push(list[0])
+            }
+            else {
+                temp_year = parseInt(list[i].date.split("/")[2])
+                if (temp_year == curr_year) years[j].push(list[i])
+                else {
+                    curr_year = temp_year;
+                    years.push([])
+                    j += 1
+                    years[j].push(list[i])
+                }
+            }
+        }
+
+        for (let year of years)
+            year.sort((a, b) => {
+                return parseInt(a.date.split("/")[0]) - parseInt(b.date.split("/")[0])
+            })
+    }
+
+    sort_by_months();
+
+    const sort_by_days = () => {
+        let ret_list = []
+        for (let year of years) {
+            let months = [[]]
+            let temp_month = 0
+            for (let i = 0, j = 0, curr_month = 0; i < year.length; i++) {
+                if (i == 0) {
+                    curr_month = parseInt(year[0].date.split("/")[0])
+                    months[0].push(year[0])
+                }
+                else {
+                    temp_month = parseInt(year[i].date.split("/")[0])
+                    if (temp_month == curr_month) months[j].push(year[i])
+                    else {
+                        curr_month = temp_month;
+                        months.push([])
+                        j += 1
+                        months[j].push(year[i])
+                    }
+                }
+            }
+
+            for (let month of months)
+                month.sort((a, b) => {
+                    return parseInt(a.date.split("/")[1]) - parseInt(b.date.split("/")[1])
+                })
+
+            for (let month of months)
+                for (let item of month)
+                    ret_list.push(item);
+        }
+        return ret_list;
+    }
+    return sort_by_days()
+}
