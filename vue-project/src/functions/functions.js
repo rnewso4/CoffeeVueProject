@@ -85,5 +85,3 @@ export const setInitials = (fullName) => {
 
     initials.value = result.toUpperCase()
 }
-
-export const getInitials = () => initials.value
