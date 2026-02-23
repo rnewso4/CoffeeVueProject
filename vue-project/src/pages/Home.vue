@@ -6,9 +6,10 @@ import { ref } from 'vue'
 import book1 from '@/data/book1.csv'
 import { sort as sortByDate } from '@/functions/functions'
 import { useSnackbar } from "vue3-snackbar";
+import Charts from './Charts.vue';
 
 const avg_num = ref(2000.64)
-let this_list = book1
+let this_list = book1 ?? []
 const list = ref(this_list)
 let top_padding = 0
 let month = 0
@@ -66,7 +67,15 @@ const sort = () => {
         </div>
         <div style="padding-bottom: 10px;"></div>
       </div>
-      <div id="right"></div>
+      <div id="right">
+        <div id="topChart" style="height: 100%; margin-bottom: 30px;">
+          <div class="chartContainers" style="margin-right: 40px;">
+            <charts :list="list"/>
+          </div>
+          <div class="chartContainers"></div>
+        </div>
+        <div style="height: 100%; border: 5px lightcoral solid;"></div>
+      </div>
       <vue3-snackbar bottom right :duration="4000"></vue3-snackbar>
     </div>
   </div>
@@ -74,6 +83,16 @@ const sort = () => {
 </template>
 
 <style scoped>
+.chartContainers{
+  background-color: white;
+  border-radius: 30px;
+  display: flex;
+  width: 100%; 
+}
+#topChart{
+  display: flex;
+  flex-direction: row;
+}
 #ind_prices {
   display: flex;
   flex-direction: row;
@@ -113,8 +132,10 @@ const sort = () => {
 }
 
 #right {
-  background-color: brown;
+  border: 2px solid black;
   flex-grow: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 #left {

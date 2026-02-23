@@ -38,16 +38,11 @@ const addFunc = () => {
     margin-top: 10px;
 }
 #text {
-    /* width: 120px; */
     display: flex;
     justify-content: center;
     align-items: center;
 }
 
-#buttons {
-    width: 100px;
-    background-color: yellow;
-}
 #revenue {
     font-weight: normal;
 }
