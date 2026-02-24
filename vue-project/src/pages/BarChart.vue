@@ -71,7 +71,7 @@ const setChartOptions = () => {
             },
             tooltip: {
                 callbacks: {
-                    label: (context) => `${context.label}: $${context.parsed.y.toFixed(2).toLocaleString()}`
+                    label: (context) => `${context.label}: $${context.parsed.y.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                 }
             },
         },
@@ -89,7 +89,7 @@ const setChartOptions = () => {
                 beginAtZero: true,
                 ticks: {
                     color: textColorSecondary,
-                    callback: (value) => '$' + value.toLocaleString()
+                    callback: (value) => '$' + value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                 },
                 grid: {
                     color: surfaceBorder

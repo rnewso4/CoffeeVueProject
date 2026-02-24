@@ -41,6 +41,7 @@ const setChartData = () => {
         datasets: [datasets]
     };
 };
+
 const setChartOptions = () => {
     const documentStyle = getComputedStyle(document.documentElement);
     const textColor = documentStyle.getPropertyValue('--p-text-color');
@@ -50,7 +51,7 @@ const setChartOptions = () => {
         plugins: {
             tooltip: {
                 callbacks: {
-                    label: (context) => `${context.label}: $${context.parsed.toFixed(2).toLocaleString()}`
+                    label: (context) => `${context.label}: $${context.parsed.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                 }
             },
             title: {
