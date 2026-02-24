@@ -1,6 +1,7 @@
+/* This is a descending sort with newest items at the top and oldest at the bottom */
 export const sort = (list) => {
     const sort_by_years = () => {
-        list.sort((a, b) => {
+        list.sort((b, a) => {
             return parseInt(a.date.split("/")[2]) - parseInt(b.date.split("/")[2])
         })
     }
@@ -28,7 +29,7 @@ export const sort = (list) => {
         }
 
         for (let year of years)
-            year.sort((a, b) => {
+            year.sort((b, a) => {
                 return parseInt(a.date.split("/")[0]) - parseInt(b.date.split("/")[0])
             })
     }
@@ -58,7 +59,7 @@ export const sort = (list) => {
             }
 
             for (let month of months)
-                month.sort((a, b) => {
+                month.sort((b, a) => {
                     return parseInt(a.date.split("/")[1]) - parseInt(b.date.split("/")[1])
                 })
 
@@ -166,8 +167,20 @@ export const monthly_revenue = (list, num_of_columns) => {
             }
             total += parseFloat(item.price);
         }
-        retList.push({label: label, price: total.toFixed(2)})
+        retList.push({label: label, price: total})
     }
 
     return retList.reverse();
 }
+
+export const top_revenues = (list, num_of_items) => {
+    let total = 0
+    for (let item of list) total += parseFloat(item.price)
+    list.sort((b, a) => a.price - b.price);
+    let newList = list.slice(0, num_of_items)
+    for (let item of newList) total -= parseFloat(item.price)
+    newList.push({date: "Other", price: total})
+    return newList
+}
+
+export const backgroundColors = ['rgb(21, 22, 24)', 'rgb(85, 85, 34)', 'rgb(169, 164, 84)', 'rgb(176, 121, 70)', 'rgb(145, 85, 61)', 'rgb(239, 228, 212)'];

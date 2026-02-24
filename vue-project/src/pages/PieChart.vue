@@ -2,7 +2,7 @@
 import Chart from 'primevue/chart';
 
 import { ref, onMounted, computed } from "vue";
-import { monthly_revenue } from '@/functions/functions';
+import { top_revenues, backgroundColors } from '@/functions/functions';
 
 const props = defineProps(['list'])
 
@@ -10,11 +10,7 @@ const props = defineProps(['list'])
 // props.list may be a ref object — use .value to get the array.
 const listData = computed(() => props.list?.value ?? props.list ?? [])
 
-const num_of_columns = 3
-
-const m_rev = monthly_revenue([...listData.value], num_of_columns)
-
-console.log(m_rev)
+const items_length = 5
 
 onMounted(() => {
     chartData.value = setChartData();
@@ -33,10 +29,10 @@ const setChartData = () => {
         borderWidth: 1
     }
     let labels = []
-    const backgroundColors = ['rgba(249, 115, 22)', 'rgba(6, 182, 212)', 'rgb(107, 114, 128)', 'rgba(139, 92, 246)'];
-    for (let i = 0; i < m_rev.length; i++) {
-        labels.push(m_rev[i].label)
-        datasets.data.push(m_rev[i].price)
+    const this_list = top_revenues([...listData.value], items_length);
+    for (let i = 0; i < this_list.length; i++) {
+        labels.push(this_list[i].date)
+        datasets.data.push(this_list[i].price)
         datasets.backgroundColor.push(backgroundColors[i]),
         datasets.borderColor.push(backgroundColors[i]);
     }
@@ -48,48 +44,29 @@ const setChartData = () => {
 const setChartOptions = () => {
     const documentStyle = getComputedStyle(document.documentElement);
     const textColor = documentStyle.getPropertyValue('--p-text-color');
-    const textColorSecondary = documentStyle.getPropertyValue('--p-text-muted-color');
-    const surfaceBorder = documentStyle.getPropertyValue('--p-content-border-color');
 
     return {
         maintainAspectRatio: false,
         plugins: {
+            tooltip: {
+                callbacks: {
+                    label: (context) => `${context.label}: $${context.parsed.toFixed(2).toLocaleString()}`
+                }
+            },
             title: {
                 display: true,
-                text: 'Monthly Revenue Values',
+                text: 'Top Daily Revenue Values',
                 color: textColor,
                 // font: {
                 //     size: 16
                 // }
             },
             legend: {
-                display: false,
                 labels: {
                     color: textColor
                 }
             }
         },
-        scales: {
-            x: {
-                ticks: {
-                    color: textColorSecondary
-                },
-                grid: {
-                    color: surfaceBorder
-                }
-            },
-            y: {
-                display: false,
-                beginAtZero: true,
-                ticks: {
-                    color: textColorSecondary,
-                    callback: (value) => '$' + value.toLocaleString()
-                },
-                grid: {
-                    color: surfaceBorder
-                }
-            }
-        }
     };
 }
 </script>
@@ -97,7 +74,7 @@ const setChartOptions = () => {
 
 <template>
     <div style="display: flex; flex-direction: column; width: 100%;">
-        <Chart type="bar" :data="chartData" :options="chartOptions" id="centerChart"/>
+        <Chart type="pie" :data="chartData" :options="chartOptions" id="centerChart"/>
     </div>
 </template>
 

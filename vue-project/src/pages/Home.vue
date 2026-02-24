@@ -2,11 +2,12 @@
 import Navbar from './Navbar.vue';
 import Revenue from './Revenue.vue';
 import { coffeeColor } from '@/variables';
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import book1 from '@/data/book1.csv'
 import { sort as sortByDate } from '@/functions/functions'
 import { useSnackbar } from "vue3-snackbar";
-import Charts from './Charts.vue';
+import BarChart from './BarChart.vue';
+import PieChart from './PieChart.vue';
 
 const avg_num = ref(2000.64)
 let this_list = book1 ?? []
@@ -40,6 +41,10 @@ const sort = () => {
 })
 }
 
+onMounted(() => {
+  list.value = sortByDate([...list.value])
+})
+
 </script>
 
 <template>
@@ -69,12 +74,14 @@ const sort = () => {
       </div>
       <div id="right">
         <div id="topChart" style="height: 100%; margin-bottom: 30px;">
-          <div class="chartContainers" style="margin-right: 40px;">
-            <charts :list="list"/>
+          <div class="chartContainers" style="margin-right: 40px;" v-show="true">
+            <bar-chart :list="list"/>
           </div>
-          <div class="chartContainers"></div>
+          <div class="chartContainers">
+            <pie-chart :list="list" v-show="true"/>
+          </div>
         </div>
-        <div style="height: 100%; border: 5px lightcoral solid;"></div>
+        <div style="height: 100%; border: 5px lightcoral solid; display: flex; flex-grow: 1;"></div>
       </div>
       <vue3-snackbar bottom right :duration="4000"></vue3-snackbar>
     </div>
@@ -92,6 +99,7 @@ const sort = () => {
 #topChart{
   display: flex;
   flex-direction: row;
+  max-height: 300px;
 }
 #ind_prices {
   display: flex;
@@ -132,7 +140,6 @@ const sort = () => {
 }
 
 #right {
-  border: 2px solid black;
   flex-grow: 1;
   display: flex;
   flex-direction: column;
@@ -167,7 +174,7 @@ const sort = () => {
   flex: 1;
   min-height: 0;
   width: 100%;
-  padding: 70px 80px 70px 80px;
+  padding: 30px 80px 30px 80px;
   box-sizing: border-box;
 }
 
