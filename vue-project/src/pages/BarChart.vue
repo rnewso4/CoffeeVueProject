@@ -79,7 +79,7 @@ const setChartOptions = () => {
                     color: textColorSecondary
                 },
                 grid: {
-                    color: surfaceBorder
+                    display: false
                 }
             },
             y: {
