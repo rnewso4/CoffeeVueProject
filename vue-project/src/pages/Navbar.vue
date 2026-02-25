@@ -12,8 +12,14 @@ const handleLogout = async () => {
   router.push('/login');
 };
 
+
+const toggleDarkMode = () => {
+    document.documentElement.classList.toggle('my-app-dark');
+}
+
+
 const items = ref([
-    { title: 'Dark Mode', onClick: () => { console.log("clicked") }},
+    { title: 'Dark Mode', onClick: toggleDarkMode},
     { title: 'Log Out', onClick: handleLogout }
 ]);
 </script>

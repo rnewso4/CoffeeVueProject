@@ -184,3 +184,14 @@ export const top_revenues = (list, num_of_items) => {
 }
 
 export const backgroundColors = ['rgb(21, 22, 24)', 'rgb(85, 85, 34)', 'rgb(169, 164, 84)', 'rgb(176, 121, 70)', 'rgb(145, 85, 61)', 'rgb(239, 228, 212)'];
+
+export const getAverage = (list) => {
+
+    if (list.length < 1) return 0
+
+    let retVal = 0
+
+    for (let item of list) retVal += parseFloat(item.price)
+
+    return parseFloat((retVal / list.length)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}

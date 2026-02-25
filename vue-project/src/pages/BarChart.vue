@@ -10,11 +10,9 @@ const props = defineProps(['list'])
 // props.list may be a ref object — use .value to get the array.
 const listData = computed(() => props.list?.value ?? props.list ?? [])
 
-const num_of_columns = 3
+const num_of_columns = 5
 
 const m_rev = monthly_revenue([...listData.value], num_of_columns)
-
-console.log(m_rev)
 
 onMounted(() => {
     chartData.value = setChartData();

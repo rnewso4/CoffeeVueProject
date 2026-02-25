@@ -1,11 +1,12 @@
 <script setup>
 import { ref } from 'vue';
 
-const props = defineProps(['sort'])
+const props = defineProps(['sort', 'setDialogVisible'])
 
 const items = ref([
     { title: 'Sort', onClick: props.sort },
-    { title: 'Filter', onClick: () => {console.log("clicked")}}
+    { title: 'Filter', onClick: () => {console.log("clicked")}},
+    { title: 'View Table', onClick: () => props.setDialogVisible(true) }
 ]);
 </script>
 

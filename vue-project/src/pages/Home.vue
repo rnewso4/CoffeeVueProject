@@ -4,12 +4,13 @@ import Revenue from './Revenue.vue';
 import { coffeeColor } from '@/variables';
 import { ref, onMounted } from 'vue'
 import book1 from '@/data/book1.csv'
-import { sort as sortByDate } from '@/functions/functions'
+import { sort as sortByDate, getAverage } from '@/functions/functions'
 import { useSnackbar } from "vue3-snackbar";
 import BarChart from './BarChart.vue';
 import PieChart from './PieChart.vue';
+import DataTable from './DataTable.vue';
 
-const avg_num = ref(2000.64)
+const avg_num = ref(0)
 let this_list = book1 ?? []
 const list = ref(this_list)
 let top_padding = 0
@@ -28,9 +29,11 @@ const show_divider = (item, index) => {
     return true
   }
 
-  top_padding +=1
+  top_padding += 1
   return false
 }
+
+const dialogVisible = ref(false);
 
 const snackbar = useSnackbar();
 const sort = () => {
@@ -38,11 +41,17 @@ const sort = () => {
   snackbar.add({
     type: 'success',
     text: 'Your list has been sorted'
-})
+  })
+}
+
+const setDialogVisible = (val) => {
+  dialogVisible.value = val
+  console.log("setting ref")
 }
 
 onMounted(() => {
   list.value = sortByDate([...list.value])
+  avg_num.value = getAverage([...list.value])
 })
 
 </script>
@@ -52,7 +61,7 @@ onMounted(() => {
     <navbar />
     <div id="main_container">
       <div id="left">
-        <revenue :sort="sort" />
+        <revenue :sort="sort" :setDialogVisible="setDialogVisible" />
         <v-divider class="dividers" opacity="0.7" />
         <div id="average">
           <div>
@@ -62,26 +71,28 @@ onMounted(() => {
             <p class="pText">${{ avg_num.toLocaleString() }}</p>
           </div>
         </div>
-        <v-divider class="dividers" opacity="0.7" id="avg_divider"/>
-        <div v-for="(item, index) in list">
-          <v-divider class="dividers" opacity="0.7" v-show="show_divider(item, index)" id="list_divider" />
-          <div id="ind_prices" :class="top_padding > 0 && 'temp_id'">
-            <p>{{ item.date }}</p>
-            <p>${{ parseFloat(item.price).toLocaleString() }}</p>
+        <v-divider class="dividers" opacity="0.7" id="avg_divider" />
+        <div id="scrollable_items">
+          <div v-for="(item, index) in list">
+            <v-divider class="dividers" opacity="0.7" v-show="show_divider(item, index)" id="list_divider" />
+            <div id="ind_prices" :class="top_padding > 0 && 'temp_id'">
+              <p>{{ item.date }}</p>
+              <p>${{ parseFloat(item.price).toLocaleString() }}</p>
+            </div>
           </div>
         </div>
         <div style="padding-bottom: 10px;"></div>
+        <data-table :list="list" :dialogVisible="dialogVisible" :setDialogVisible="setDialogVisible" />
       </div>
       <div id="right">
         <div id="topChart" style="height: 100%; margin-bottom: 30px;">
           <div class="chartContainers" style="margin-right: 40px;" v-show="true">
-            <bar-chart :list="list"/>
-          </div>
-          <div class="chartContainers">
-            <pie-chart :list="list" v-show="true"/>
+            <bar-chart :list="list" />
           </div>
         </div>
-        <div style="height: 100%; border: 5px lightcoral solid; display: flex; flex-grow: 1;"></div>
+        <div class="chartContainers" style="flex-grow: 1;">
+          <pie-chart :list="list" v-show="true" />
+        </div>
       </div>
       <vue3-snackbar bottom right :duration="4000"></vue3-snackbar>
     </div>
@@ -90,17 +101,34 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.chartContainers{
+#scrollable_items {
+  overflow-y: scroll;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
+  min-height: 0;
+}
+
+/* Force scrollbar to always be visible */
+#scrollable_items::-webkit-scrollbar {
+  width: 8px;
+}
+#scrollable_items::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+.chartContainers {
   background-color: white;
   border-radius: 30px;
   display: flex;
-  width: 100%; 
+  width: 100%;
 }
-#topChart{
+
+#topChart {
   display: flex;
   flex-direction: row;
   max-height: 300px;
 }
+
 #ind_prices {
   display: flex;
   flex-direction: row;
@@ -109,13 +137,16 @@ onMounted(() => {
   margin-left: 30px;
   align-items: center;
 }
+
 .temp_id {
   margin-top: 10px;
 }
+
 #list_divider {
   margin-bottom: 18px;
   margin-top: 18px;
 }
+
 #avg_divider {
   margin-bottom: 18px;
 }
@@ -148,24 +179,10 @@ onMounted(() => {
 #left {
   width: 330px;
   background-color: white;
-  margin-right: 80px;
+  margin-right: 40px;
   border-radius: 30px;
   display: flex;
   flex-direction: column;
-  min-height: 0;
-  overflow-y: scroll;
-  overflow-x: hidden;
-  scrollbar-gutter: stable;
-}
-#left::-webkit-scrollbar {
-  width: 8px;
-}
-#left::-webkit-scrollbar-track {
-  background: transparent;
-}
-#left::-webkit-scrollbar-thumb {
-  background-color: rgba(0, 0, 0, 0.3);
-  border-radius: 4px;
 }
 
 #main_container {
@@ -174,7 +191,7 @@ onMounted(() => {
   flex: 1;
   min-height: 0;
   width: 100%;
-  padding: 30px 80px 30px 80px;
+  padding: 30px 40px 30px 40px;
   box-sizing: border-box;
 }
 

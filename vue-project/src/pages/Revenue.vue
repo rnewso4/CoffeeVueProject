@@ -1,7 +1,7 @@
 <script setup>
 import RevMenu from './RevMenu.vue';
 
-const props = defineProps(['sort'])
+const props = defineProps(['sort', 'setDialogVisible'])
 
 const addFunc = () => {
     console.log("Add clicked")
@@ -15,7 +15,7 @@ const addFunc = () => {
     </div>
     <div id="add">
         <v-btn prepend-icon="mdi-plus-circle" variant="text" color="#CF761E" class="add-btn" density="comfortable" @click="addFunc">Add</v-btn>
-        <rev-menu :sort="props.sort"/>
+        <rev-menu :sort="props.sort" :setDialogVisible="props.setDialogVisible"/>
     </div>
  </div>
 </template>
