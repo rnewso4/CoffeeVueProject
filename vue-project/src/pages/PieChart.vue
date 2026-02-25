@@ -1,8 +1,9 @@
 <script setup>
 import Chart from 'primevue/chart';
+import { Card } from 'primevue';
 
-import { ref, onMounted, computed } from "vue";
-import { top_revenues, backgroundColors } from '@/functions/functions';
+import { ref, onMounted, onUnmounted, computed, watch } from "vue";
+import { top_revenues, backgroundColors, darkBackgroundColors } from '@/functions/functions';
 
 const props = defineProps(['list'])
 
@@ -12,7 +13,24 @@ const listData = computed(() => props.list?.value ?? props.list ?? [])
 
 const items_length = 5
 
+const isDarkMode = ref(document.documentElement.classList.contains('my-app-dark'));
+let darkModeObserver = null;
+
 onMounted(() => {
+    chartData.value = setChartData();
+    chartOptions.value = setChartOptions();
+
+    darkModeObserver = new MutationObserver(() => {
+        isDarkMode.value = document.documentElement.classList.contains('my-app-dark');
+    });
+    darkModeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+});
+
+onUnmounted(() => {
+    darkModeObserver?.disconnect();
+});
+
+watch(isDarkMode, () => {
     chartData.value = setChartData();
     chartOptions.value = setChartOptions();
 });
@@ -21,6 +39,8 @@ const chartData = ref();
 const chartOptions = ref();
 
 const setChartData = () => {
+    const isDark = document.documentElement.classList.contains('my-app-dark');
+    const colors = isDark ? darkBackgroundColors : backgroundColors;
     let datasets = {
         label: "Revenue",
         data: [],
@@ -33,8 +53,8 @@ const setChartData = () => {
     for (let i = 0; i < this_list.length; i++) {
         labels.push(this_list[i].date)
         datasets.data.push(this_list[i].price)
-        datasets.backgroundColor.push(backgroundColors[i]),
-        datasets.borderColor.push(backgroundColors[i]);
+        datasets.backgroundColor.push(colors[i]),
+        datasets.borderColor.push(colors[i]);
     }
     return {
         labels: labels,
@@ -44,7 +64,8 @@ const setChartData = () => {
 
 const setChartOptions = () => {
     const documentStyle = getComputedStyle(document.documentElement);
-    const textColor = documentStyle.getPropertyValue('--p-text-color');
+    const isDark = document.documentElement.classList.contains('my-app-dark');
+    const textColor = isDark ? '#ffffff' : documentStyle.getPropertyValue('--p-text-color');
 
     return {
         maintainAspectRatio: false,
@@ -74,9 +95,11 @@ const setChartOptions = () => {
 
 
 <template>
-    <div style="display: flex; flex-direction: column; width: 100%;">
-        <Chart type="pie" :data="chartData" :options="chartOptions" id="centerChart"/>
-    </div>
+    <Card style="height: 100%; width: 100%;">
+        <template #content>
+            <Chart type="pie" :data="chartData" :options="chartOptions" id="centerChart"/>
+        </template>
+    </Card>
 </template>
 
 <style scoped>
@@ -86,5 +109,15 @@ const setChartOptions = () => {
     justify-content: center;
     height: 100%;
     padding: 5px;
+    width: 100%;
+}
+:deep(.p-card-content) {
+    display: flex;
+    height: 100%;
+    width: 100%;
+}
+
+:deep(.p-card-body) {
+    height: 100%;
 }
 </style>

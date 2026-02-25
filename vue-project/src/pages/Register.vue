@@ -37,6 +37,7 @@
             await setDoc(doc(db, 'users', user.uid), {
                 email: user.email,
                 fullName: fullName.value || '',
+                darkMode: false,
                 createdAt: serverTimestamp()
             })
 

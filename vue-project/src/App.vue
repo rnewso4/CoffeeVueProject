@@ -11,8 +11,16 @@ onMounted(() => {
     if (user) {
       try {
         const userDoc = await getDoc(doc(db, 'users', user.uid))
-        const fullName = userDoc.exists() ? userDoc.data().fullName : ''
-        setInitials(fullName || '')
+        const data = userDoc.exists() ? userDoc.data() : {}
+        const fullName = data.fullName || ''
+        setInitials(fullName)
+        const darkMode = data.darkMode === true
+        if (darkMode) {
+          document.documentElement.classList.add('my-app-dark')
+        } else {
+          document.documentElement.classList.remove('my-app-dark')
+        }
+        localStorage.setItem('darkMode', darkMode ? 'true' : 'false')
       } catch {
         setInitials('')
       }

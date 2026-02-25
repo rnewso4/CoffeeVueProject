@@ -1,9 +1,12 @@
 <script setup>
 import { initials } from '@/functions/functions'
-import { ref } from 'vue';
+import { coffeeColor } from '@/variables';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { signOut } from 'firebase/auth';
-import { auth } from '@/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
+import { auth, db } from '@/firebase';
+import { Button, Menu } from 'primevue';
 
 const router = useRouter();
 
@@ -13,15 +16,48 @@ const handleLogout = async () => {
 };
 
 
-const toggleDarkMode = () => {
+const toggleDarkMode = async () => {
+    const currentDark = document.documentElement.classList.contains('my-app-dark');
     document.documentElement.classList.toggle('my-app-dark');
-}
+    const newDark = !currentDark;
+    localStorage.setItem('darkMode', newDark ? 'true' : 'false');
+    const user = auth.currentUser;
+    if (user) {
+        try {
+            await updateDoc(doc(db, 'users', user.uid), { darkMode: newDark });
+        } catch (err) {
+            console.error('Failed to update darkMode:', err);
+        }
+    }
+};
 
+const isDarkMode = ref(document.documentElement.classList.contains('my-app-dark'));
+let darkModeObserver = null;
 
+const navbarBackgroundColor = computed(() => isDarkMode.value ? '#18181b' : '#FFFFFF');
+
+const textColor = computed(() => isDarkMode.value ? '#FFFFFF' : '#000000')
+
+const menu = ref();
 const items = ref([
-    { title: 'Dark Mode', onClick: toggleDarkMode},
-    { title: 'Log Out', onClick: handleLogout }
+    { label: 'Dark Mode', command: () => toggleDarkMode() },
+    { label: 'Log Out', command: () => handleLogout() }
 ]);
+
+const toggle = (event) => {
+    menu.value.toggle(event);
+};
+
+onMounted(() => {
+    darkModeObserver = new MutationObserver(() => {
+        isDarkMode.value = document.documentElement.classList.contains('my-app-dark');
+    });
+    darkModeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+});
+
+onUnmounted(() => {
+    darkModeObserver?.disconnect();
+});
 </script>
 
 <template>
@@ -40,18 +76,10 @@ const items = ref([
                 <h2 class="navText">Filter</h2>
             </div>
         </div>
-        <v-menu>
-            <template v-slot:activator="{ props }">
-                <div id="initials_button">
-                <v-btn variant="tonal" rounded="circle" class="initials-btn" v-bind="props">{{initials}}</v-btn>
-                </div>
-            </template>
-            <v-list>
-                <v-list-item v-for="(item, index) in items" :key="index" :value="index">
-                    <v-list-item-title @click="item.onClick">{{ item.title }}</v-list-item-title>
-                </v-list-item>
-            </v-list>
-        </v-menu>
+        <div class="card flex justify-center" style="display: flex; align-items: center; justify-content: center; width: 125px;">
+        <Button class="initials-button" style="width: 40px; height: 40px;" severity="secondary" type="button" rounded :label="initials" @click="toggle" aria-haspopup="true" aria-controls="overlay_menu" />
+        <Menu ref="menu" id="overlay_menu" :model="items" :popup="true" />
+        </div>
     </div>
 </template>
 
@@ -63,16 +91,22 @@ const items = ref([
     width: 125px;
 }
 
+.initials-button {
+    font-weight: 500 !important;
+}
+
 .initials-btn {
     width: 40px !important;
     min-width: 40px !important;
     height: 40px !important;
     padding: 0 !important;
     font-weight: bold;
+    background-color: lightgray;
 }
 .navText {
     font-weight: normal;
     font-size: 1.1rem;
+    color: v-bind(textColor);
 }
 
 #create:hover {
@@ -100,6 +134,10 @@ const items = ref([
     transition: background-color 0.3s ease-in-out;
 }
 
+.navItem:hover .navText {
+    color: black;
+}
+
 #container {
     position: sticky;
     top: 0;
@@ -107,7 +145,7 @@ const items = ref([
     height: 60px;
     display: flex;
     flex-direction: row;
-    background-color: white;
+    background-color: v-bind(navbarBackgroundColor);
 }
 
 #logo {

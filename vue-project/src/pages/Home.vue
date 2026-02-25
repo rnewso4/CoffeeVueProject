@@ -1,14 +1,15 @@
 <script setup>
 import Navbar from './Navbar.vue';
-import Revenue from './Revenue.vue';
 import { coffeeColor } from '@/variables';
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import book1 from '@/data/book1.csv'
 import { sort as sortByDate, getAverage } from '@/functions/functions'
 import { useSnackbar } from "vue3-snackbar";
 import BarChart from './BarChart.vue';
 import PieChart from './PieChart.vue';
 import DataTable from './DataTable.vue';
+import { Card } from 'primevue';
+import Revenue from './Revenue.vue';
 
 const avg_num = ref(0)
 let this_list = book1 ?? []
@@ -35,6 +36,11 @@ const show_divider = (item, index) => {
 
 const dialogVisible = ref(false);
 
+const isDarkMode = ref(document.documentElement.classList.contains('my-app-dark'));
+let darkModeObserver = null;
+
+const mainBackgroundColor = computed(() => isDarkMode.value ? '#29292C' : coffeeColor);
+
 const snackbar = useSnackbar();
 const sort = () => {
   list.value = sortByDate([...list.value]);
@@ -52,7 +58,16 @@ const setDialogVisible = (val) => {
 onMounted(() => {
   list.value = sortByDate([...list.value])
   avg_num.value = getAverage([...list.value])
-})
+
+  darkModeObserver = new MutationObserver(() => {
+    isDarkMode.value = document.documentElement.classList.contains('my-app-dark');
+  });
+  darkModeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+});
+
+onUnmounted(() => {
+  darkModeObserver?.disconnect();
+});
 
 </script>
 
@@ -61,36 +76,40 @@ onMounted(() => {
     <navbar />
     <div id="main_container">
       <div id="left">
-        <revenue :sort="sort" :setDialogVisible="setDialogVisible" />
-        <v-divider class="dividers" opacity="0.7" />
-        <div id="average">
-          <div>
-            <p class="pText">Average</p>
-          </div>
-          <div>
-            <p class="pText">${{ avg_num.toLocaleString() }}</p>
-          </div>
-        </div>
-        <v-divider class="dividers" opacity="0.7" id="avg_divider" />
-        <div id="scrollable_items">
-          <div v-for="(item, index) in list">
-            <v-divider class="dividers" opacity="0.7" v-show="show_divider(item, index)" id="list_divider" />
-            <div id="ind_prices" :class="top_padding > 0 && 'temp_id'">
-              <p>{{ item.date }}</p>
-              <p>${{ parseFloat(item.price).toLocaleString() }}</p>
+        <Card style="flex: 1; min-height: 0; width: 100%;">
+          <template #content>
+          <div id="card_content">
+          <revenue :sort="sort" :setDialogVisible="setDialogVisible" />
+          <v-divider class="dividers" opacity="0.7" />
+          <div id="average">
+            <div>
+              <p class="pText">Average</p>
+            </div>
+            <div>
+              <p class="pText">${{ avg_num.toLocaleString() }}</p>
             </div>
           </div>
-        </div>
-        <div style="padding-bottom: 10px;"></div>
-        <data-table :list="list" :dialogVisible="dialogVisible" :setDialogVisible="setDialogVisible" />
+          <v-divider class="dividers" opacity="0.7" id="avg_divider" />
+          <div id="scrollable_items">
+            <div v-for="(item, index) in list">
+              <v-divider class="dividers" opacity="0.7" v-show="show_divider(item, index)" id="list_divider" />
+              <div id="ind_prices" :class="top_padding > 0 && 'temp_id'">
+                <p>{{ item.date }}</p>
+                <p>${{ parseFloat(item.price).toLocaleString() }}</p>
+              </div>
+            </div>
+          </div>
+          <div style="padding-bottom: 10px;"></div>
+          <data-table :list="list" :dialogVisible="dialogVisible" :setDialogVisible="setDialogVisible" />
+          </div>
+          </template>
+        </Card>
       </div>
       <div id="right">
         <div id="topChart" style="height: 100%; margin-bottom: 30px;">
-          <div class="chartContainers" style="margin-right: 40px;" v-show="true">
-            <bar-chart :list="list" />
-          </div>
+          <bar-chart :list="list" />
         </div>
-        <div class="chartContainers" style="flex-grow: 1;">
+        <div style="height: 100%; display: flex; width: 100%;">
           <pie-chart :list="list" v-show="true" />
         </div>
       </div>
@@ -101,7 +120,31 @@ onMounted(() => {
 </template>
 
 <style scoped>
+:deep(.p-card) {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+:deep(.p-card-body),
+:deep(.p-card-content) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+#card_content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
 #scrollable_items {
+  flex: 1;
   overflow-y: scroll;
   overflow-x: hidden;
   scrollbar-gutter: stable;
@@ -112,20 +155,14 @@ onMounted(() => {
 #scrollable_items::-webkit-scrollbar {
   width: 8px;
 }
+
 #scrollable_items::-webkit-scrollbar-thumb {
   background: #c1c1c1;
   border-radius: 4px;
 }
-.chartContainers {
-  background-color: white;
-  border-radius: 30px;
-  display: flex;
-  width: 100%;
-}
 
 #topChart {
   display: flex;
-  flex-direction: row;
   max-height: 300px;
 }
 
@@ -177,10 +214,9 @@ onMounted(() => {
 }
 
 #left {
-  width: 330px;
-  background-color: white;
+  width: 370px;
+  min-height: 0;
   margin-right: 40px;
-  border-radius: 30px;
   display: flex;
   flex-direction: column;
 }
@@ -196,7 +232,7 @@ onMounted(() => {
 }
 
 #main {
-  background-color: v-bind(coffeeColor);
+  background-color: v-bind(mainBackgroundColor);
   display: flex;
   flex-direction: column;
   height: 100vh;

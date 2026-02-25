@@ -1,6 +1,5 @@
 import '@mdi/font/css/materialdesignicons.css'
 import { createApp } from 'vue'
-
 import App from './App.vue'
 import router from './router'
 import vuetify from './plugins/vuetify'
@@ -10,6 +9,11 @@ import { SnackbarService, Vue3Snackbar } from "vue3-snackbar";
 import PrimeVue from 'primevue/config';
 import Material from '@primeuix/themes/material'
 import "vue3-snackbar/styles";
+
+// Apply cached dark mode before first paint to prevent flash
+if (localStorage.getItem('darkMode') === 'true') {
+  document.documentElement.classList.add('my-app-dark')
+}
 
 const app = createApp(App)
 

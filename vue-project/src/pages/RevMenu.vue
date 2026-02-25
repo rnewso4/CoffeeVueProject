@@ -1,28 +1,29 @@
 <script setup>
 import { ref } from 'vue';
+import { Button, Menu } from 'primevue';
+import 'primeicons/primeicons.css'
 
 const props = defineProps(['sort', 'setDialogVisible'])
 
+const menu = ref();
 const items = ref([
-    { title: 'Sort', onClick: props.sort },
-    { title: 'Filter', onClick: () => {console.log("clicked")}},
-    { title: 'View Table', onClick: () => props.setDialogVisible(true) }
+    { label: 'Sort', command: () => props.sort() },
+    { label: 'Filter', command: () => console.log("clicked") },
+    { label: 'View Table', command: () => props.setDialogVisible(true) }
 ]);
+
+const toggle = (event) => {
+    menu.value.toggle(event);
+};
 </script>
 
 <template>
-    <div>
-        <v-menu>
-            <template v-slot:activator="{ props }">
-                <v-btn icon="mdi-dots-vertical" variant="text" width="20px" v-bind="props"></v-btn>
-            </template>
-            <v-list>
-                <v-list-item v-for="(item, index) in items" :key="index" :value="index">
-                    <v-list-item-title @click="item.onClick">{{ item.title }}</v-list-item-title>
-                </v-list-item>
-            </v-list>
-        </v-menu>
+    <div class="card flex justify-center">
+        <Button style="width: 20px;" severity="contrast" type="button" variant="text" icon="pi pi-ellipsis-v" @click="toggle" aria-haspopup="true" aria-controls="overlay_menu" />
+        <Menu ref="menu" id="overlay_menu" :model="items" :popup="true" />
     </div>
 </template>
 
-<style scoped></style>
+<style scoped>
+
+</style>

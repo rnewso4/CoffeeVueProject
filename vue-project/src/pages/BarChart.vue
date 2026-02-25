@@ -1,8 +1,9 @@
 <script setup>
 import Chart from 'primevue/chart';
+import Card from 'primevue/card';
 
-import { ref, onMounted, computed } from "vue";
-import { monthly_revenue, backgroundColors } from '@/functions/functions';
+import { ref, onMounted, onUnmounted, computed, watch } from "vue";
+import { monthly_revenue, backgroundColors, darkBackgroundColors } from '@/functions/functions';
 
 const props = defineProps(['list'])
 
@@ -14,7 +15,24 @@ const num_of_columns = 5
 
 const m_rev = monthly_revenue([...listData.value], num_of_columns)
 
+const isDarkMode = ref(document.documentElement.classList.contains('my-app-dark'));
+let darkModeObserver = null;
+
 onMounted(() => {
+    chartData.value = setChartData();
+    chartOptions.value = setChartOptions();
+
+    darkModeObserver = new MutationObserver(() => {
+        isDarkMode.value = document.documentElement.classList.contains('my-app-dark');
+    });
+    darkModeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+});
+
+onUnmounted(() => {
+    darkModeObserver?.disconnect();
+});
+
+watch(isDarkMode, () => {
     chartData.value = setChartData();
     chartOptions.value = setChartOptions();
 });
@@ -23,7 +41,9 @@ const chartData = ref();
 const chartOptions = ref();
 
 const setChartData = () => {
-    let palette = [...backgroundColors]
+    const isDark = document.documentElement.classList.contains('my-app-dark');
+    const colors = isDark ? darkBackgroundColors : backgroundColors;
+    let palette = [...colors]
     palette.reverse()
     let datasets = {
         label: "Revenue",
@@ -46,8 +66,9 @@ const setChartData = () => {
 };
 const setChartOptions = () => {
     const documentStyle = getComputedStyle(document.documentElement);
-    const textColor = documentStyle.getPropertyValue('--p-text-color');
-    const textColorSecondary = documentStyle.getPropertyValue('--p-text-muted-color');
+    const isDark = document.documentElement.classList.contains('my-app-dark');
+    const textColor = isDark ? '#ffffff' : documentStyle.getPropertyValue('--p-text-color');
+    const textColorSecondary = isDark ? '#ffffff' : documentStyle.getPropertyValue('--p-text-muted-color');
     const surfaceBorder = documentStyle.getPropertyValue('--p-content-border-color');
 
     return {
@@ -100,17 +121,30 @@ const setChartOptions = () => {
 
 
 <template>
-    <div style="display: flex; flex-direction: column; width: 100%;">
-        <Chart type="bar" :data="chartData" :options="chartOptions" id="centerChart"/>
-    </div>
+    <Card style="height: 100%; width: 100%;">
+        <template #content>
+            <Chart type="bar" :data="chartData" :options="chartOptions" id="centerChart"/>
+        </template>
+    </Card>
 </template>
 
 <style scoped>
+:deep(.p-card-content) {
+    display: flex;
+    height: 100%;
+    width: 100%;
+}
+
+:deep(.p-card-body) {
+    height: 100%;
+}
+
 #centerChart {
     display: flex;
     align-items: center;
     justify-content: center;
     height: 100%;
     padding: 5px;
+    width: 100%;
 }
 </style>

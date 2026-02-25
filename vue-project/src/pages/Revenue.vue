@@ -14,7 +14,7 @@ const addFunc = () => {
         <h2 id="revenue">Revenues</h2>
     </div>
     <div id="add">
-        <v-btn prepend-icon="mdi-plus-circle" variant="text" color="#CF761E" class="add-btn" density="comfortable" @click="addFunc">Add</v-btn>
+        <v-btn prepend-icon="mdi-plus-circle" variant="text" color="#CF761E" class="add-btn" @click="addFunc">Add</v-btn>
         <rev-menu :sort="props.sort" :setDialogVisible="props.setDialogVisible"/>
     </div>
  </div>
@@ -23,6 +23,7 @@ const addFunc = () => {
 <style scoped>
 .add-btn {
     font-weight: bold;
+    height: 100%;
 }
 #add {
     display: flex;
@@ -35,7 +36,6 @@ const addFunc = () => {
     margin-left: 30px;
     display: flex;
     justify-content: space-between;
-    margin-top: 10px;
 }
 #text {
     display: flex;
