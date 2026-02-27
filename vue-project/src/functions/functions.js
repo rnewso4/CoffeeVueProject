@@ -184,7 +184,7 @@ export const top_revenues = (list, num_of_items) => {
 }
 
 export const backgroundColors = ['rgb(21, 22, 24)', 'rgb(85, 85, 34)', 'rgb(169, 164, 84)', 'rgb(176, 121, 70)', 'rgb(145, 85, 61)', 'rgb(239, 228, 212)'];
-export const darkBackgroundColors = ['rgb(255, 203, 165)', 'rgb(85, 85, 34)', 'rgb(169, 164, 84)', 'rgb(176, 121, 70)', 'rgb(145, 85, 61)', 'rgb(239, 228, 212)'];
+export const darkBackgroundColors = ['rgb(239, 228, 212)', 'rgb(85, 85, 34)', 'rgb(169, 164, 84)', 'rgb(176, 121, 70)', 'rgb(145, 85, 61)', 'rgb(56, 38, 22)'];
 
 export const getAverage = (list) => {
 
