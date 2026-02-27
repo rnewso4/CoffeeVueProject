@@ -66,11 +66,11 @@ onUnmounted(() => {
             <div id="circle"></div>
         </div>
         <div id="items">
-            <div id="create" class="navItem">
-                <h2 class="navText">Create</h2>
-            </div>
             <div id="list" class="navItem">
                 <h2 class="navText">List</h2>
+            </div>
+            <div id="create" class="navItem" @click="generatePopup">
+                <h2 class="navText">Generate</h2>
             </div>
             <div id="filter" class="navItem">
                 <h2 class="navText">Filter</h2>
