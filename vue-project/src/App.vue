@@ -38,8 +38,26 @@ onMounted(() => {
 </template>
 
 <style>
+html {
+  width: 100%;
+  min-width: 100%;
+  scrollbar-gutter: stable;
+}
+
 body, html {
   margin: 0;
   padding: 0;
+}
+
+.v-application {
+  width: 100%;
+  min-width: 100vw;
+  display: flex;
+}
+
+#app {
+  width: 100%;
+  min-width: 100vw;
+  display: flex;
 }
 </style>
