@@ -7,6 +7,8 @@ import { useToast } from "primevue/usetoast";
 import { z } from 'zod';
 import { Form } from '@primevue/forms';
 import Toast from 'primevue/toast';
+import DatePicker from 'primevue/datepicker';
+import InputNumber from 'primevue/inputnumber';
 
 
 const props = defineProps(['sort', 'setDialogVisible'])
@@ -54,10 +56,25 @@ const items = [
 
 const items2 = [
     { field: 'date', header: 'Date' },
-    { field: 'price', header: 'Price' },
+    { field: 'price', header: 'Daily Revenue' },
     { field: 'customers', header: 'Customers' },
     { field: 'avg_order_val', header: 'Average Order Value' },
 ];
+
+const integerField = (field) => {
+    if (field === "hours" || field === "employees" || field === "foot_traffic" || field === "customers") return true
+    return false;
+}
+
+const floatField = (field) => {
+    if (field === "spend" || field === "price" || field === "avg_order_val") return true;
+    return false;
+}
+
+const maxForField = (field) => {
+    if (field === 'hours') return 23;
+    return Number.MAX_SAFE_INTEGER;
+}
 
 </script>
 
@@ -78,7 +95,8 @@ const items2 = [
                         <div style="display: flex; flex-direction: column;">
                             <div v-for="item of items" class="flex items-center" style="padding: 10px;">
                                 <FloatLabel variant="on">
-                                    <InputText id="on_label" :name="item.field" />
+                                    <InputNumber id="on_label" :name="item.field" inputId="minmaxfraction" :minFractionDigits="2" :maxFractionDigits="2" fluid v-if="floatField(item.field)"/>
+                                    <InputNumber id="on_label" :name="item.field" inputId="integeronly" fluid v-if="integerField(item.field)" :min="1" :max="maxForField(item.field)"/>
                                     <label for="on_label">{{ item.header }}</label>
                                 </FloatLabel>
                             </div>
@@ -86,7 +104,9 @@ const items2 = [
                         <div style="display: flex; flex-direction: column;">
                             <div v-for="item of items2" class="flex items-center" style="padding: 10px;">
                                 <FloatLabel variant="on">
-                                    <InputText id="on_label" :name="item.field" />
+                                    <InputNumber id="on_label" :name="item.field" inputId="minmaxfraction" :minFractionDigits="2" :maxFractionDigits="2" fluid v-if="floatField(item.field)"/>
+                                    <InputNumber id="on_label" :name="item.field" inputId="integeronly" fluid v-if="integerField(item.field)" :min="1"/>
+                                    <DatePicker name="date" fluid v-if="item.field === 'date'"/>
                                     <label for="on_label">{{ item.header }}</label>
                                 </FloatLabel>
                             </div>
