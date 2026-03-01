@@ -3,29 +3,108 @@ import Navbar from './Navbar.vue';
 import { coffeeColor } from '@/variables';
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import book1 from '@/data/book1.csv'
-import { sort as sortByDate, getAverage } from '@/functions/functions'
+import { getAverage, sort as sortByDate } from '@/functions/functions'
 import { useSnackbar } from "vue3-snackbar";
 import BarChart from './BarChart.vue';
 import PieChart from './PieChart.vue';
 import DataTable from './DataTable.vue';
 import { Card } from 'primevue';
 import Revenue from './Revenue.vue';
+import { auth, db } from '@/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
+import { collection, doc, writeBatch, getDocs, query, orderBy } from 'firebase/firestore';
+
+function normalizeEntry(entry) {
+  const date = entry.date;
+  let dateStr = '';
+  if (date && typeof date === 'string') {
+    dateStr = date;
+  } else if (date && typeof date.toDate === 'function') {
+    const d = date.toDate();
+    dateStr = `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
+  }
+  const price = entry.price != null ? Number(entry.price) : 0;
+  return { ...entry, date: dateStr, price };
+}
 
 const avg_num = ref(0)
+
 let this_list = book1 ?? []
-const list = ref(this_list)
+const list = ref(sortByDate(this_list))
+avg_num.value = getAverage([...list.value])
+
+// const list = ref([])
+
 let top_padding = 0
 let month = 0
 
+const snackbar = useSnackbar();
+
+async function loadEntriesFromFirebase() {
+  const user = auth.currentUser;
+  if (!user) {
+    list.value = [];
+    avg_num.value = 0;
+    return;
+  }
+  try {
+    const entriesRef = collection(doc(db, 'users', user.uid), 'entries');
+    const q = query(entriesRef, orderBy('date', 'desc'));
+    const snapshot = await getDocs(q);
+    const entries = snapshot.docs.map((d) => normalizeEntry({ id: d.id, ...d.data() }));
+    list.value = [...entries];
+    console.log(list.value)
+    avg_num.value = getAverage([...list.value]);
+  } catch (e) {
+    console.error('Failed to load entries from Firebase:', e);
+    snackbar.add({ type: 'error', text: 'Failed to load entries.' });
+    list.value = [];
+    avg_num.value = 0;
+  }
+}
+
+// const sendListToFirebase = async () => {
+//   const user = auth.currentUser;
+//   if (!user) {
+//     snackbar.add({ type: 'error', text: 'You must be signed in to sync to Firebase.' });
+//     return;
+//   }
+//   const entries = list.value ?? [];
+//   if (entries.length === 0) {
+//     snackbar.add({ type: 'info', text: 'No entries to send.' });
+//     return;
+//   }
+//   const BATCH_SIZE = 500;
+//   const entriesRef = collection(doc(db, 'users', user.uid), 'entries');
+//   try {
+//     for (let i = 0; i < entries.length; i += BATCH_SIZE) {
+//       const batch = writeBatch(db);
+//       const chunk = entries.slice(i, i + BATCH_SIZE);
+//       for (const entry of chunk) {
+//         const docRef = doc(entriesRef);
+//         const { id, ...data } = entry;
+//         batch.set(docRef, data);
+//       }
+//       await batch.commit();
+//     }
+//     snackbar.add({ type: 'success', text: 'Sending complete' });
+//   } catch (e) {
+//     console.error('Firebase sync failed:', e);
+//     snackbar.add({ type: 'error', text: 'Failed to send entries. Try again.' });
+//   }
+// }
+
 const show_divider = (item, index) => {
+  const dateStr = item?.date;
   if (index == 0) {
     top_padding = 0
-    month = item.date.split("/")[0]
+    month = typeof dateStr === 'string' ? dateStr.split("/")[0] : ''
     return false
   }
 
-  if (item.date.split("/")[0] != month) {
-    month = item.date.split("/")[0]
+  if (typeof dateStr !== 'string') return false
+  if (dateStr.split("/")[0] != month) {
+    month = dateStr.split("/")[0]
     top_padding = 0
     return true
   }
@@ -41,9 +120,7 @@ let darkModeObserver = null;
 
 const mainBackgroundColor = computed(() => isDarkMode.value ? '#29292C' : coffeeColor);
 
-const snackbar = useSnackbar();
 const sort = () => {
-  list.value = sortByDate([...list.value]);
   snackbar.add({
     type: 'success',
     text: 'Your list has been sorted'
@@ -52,17 +129,17 @@ const sort = () => {
 
 const setDialogVisible = (val) => {
   dialogVisible.value = val
-  console.log("setting ref")
 }
 
 onMounted(() => {
-  list.value = sortByDate([...list.value])
-  avg_num.value = getAverage([...list.value])
-
   darkModeObserver = new MutationObserver(() => {
     isDarkMode.value = document.documentElement.classList.contains('my-app-dark');
   });
   darkModeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+
+  // onAuthStateChanged(auth, (user) => {
+  //   loadEntriesFromFirebase();
+  // });
 });
 
 onUnmounted(() => {
@@ -78,30 +155,30 @@ onUnmounted(() => {
       <div id="left">
         <Card style="flex: 1; min-height: 0; width: 100%;">
           <template #content>
-          <div id="card_content">
-          <revenue :sort="sort" :setDialogVisible="setDialogVisible" />
-          <v-divider class="dividers" opacity="0.7" />
-          <div id="average">
-            <div>
-              <p class="pText">Average</p>
-            </div>
-            <div>
-              <p class="pText">${{ avg_num.toLocaleString() }}</p>
-            </div>
-          </div>
-          <v-divider class="dividers" opacity="0.7" id="avg_divider" />
-          <div id="scrollable_items">
-            <div v-for="(item, index) in list">
-              <v-divider class="dividers" opacity="0.7" v-show="show_divider(item, index)" id="list_divider" />
-              <div id="ind_prices" :class="top_padding > 0 && 'temp_id'">
-                <p>{{ item.date }}</p>
-                <p>${{ parseFloat(item.price).toLocaleString() }}</p>
+            <div id="card_content">
+              <revenue :sort="sort" :setDialogVisible="setDialogVisible"/>
+              <v-divider class="dividers" opacity="0.7" />
+              <div id="average">
+                <div>
+                  <p class="pText">Average</p>
+                </div>
+                <div>
+                  <p class="pText">${{ avg_num.toLocaleString() }}</p>
+                </div>
               </div>
+              <v-divider class="dividers" opacity="0.7" id="avg_divider" />
+              <div id="scrollable_items">
+                <div v-for="(item, index) in list">
+                  <v-divider class="dividers" opacity="0.7" v-show="show_divider(item, index)" id="list_divider" />
+                  <div id="ind_prices" :class="top_padding > 0 && 'temp_id'">
+                    <p>{{ item.date }}</p>
+                    <p>${{ (typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0).toLocaleString() }}</p>
+                  </div>
+                </div>
+              </div>
+              <div style="padding-bottom: 10px;"></div>
+              <data-table :list="list" :dialogVisible="dialogVisible" :setDialogVisible="setDialogVisible" />
             </div>
-          </div>
-          <div style="padding-bottom: 10px;"></div>
-          <data-table :list="list" :dialogVisible="dialogVisible" :setDialogVisible="setDialogVisible" />
-          </div>
           </template>
         </Card>
       </div>
@@ -163,7 +240,6 @@ onUnmounted(() => {
 
 #topChart {
   display: flex;
-  max-height: 300px;
 }
 
 #ind_prices {

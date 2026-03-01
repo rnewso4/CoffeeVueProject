@@ -158,7 +158,7 @@ export const monthly_revenue = (list, num_of_columns) => {
     let label = null;
     let total = 0;
 
-    for (let i = newList.length - 1, j = 0; i >= 0 && j < num_of_columns; i--, j++) {
+    for (let i = 0; i < newList.length && i < num_of_columns; i++) {
         label = null;
         total = 0
         for (let item of newList[i]) {

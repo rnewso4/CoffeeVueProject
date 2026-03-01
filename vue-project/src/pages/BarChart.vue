@@ -13,7 +13,7 @@ const listData = computed(() => props.list?.value ?? props.list ?? [])
 
 const num_of_columns = 5
 
-const m_rev = monthly_revenue([...listData.value], num_of_columns)
+const m_rev = computed(() => monthly_revenue([...listData.value], num_of_columns))
 
 const isDarkMode = ref(document.documentElement.classList.contains('my-app-dark'));
 let darkModeObserver = null;
@@ -37,6 +37,10 @@ watch(isDarkMode, () => {
     chartOptions.value = setChartOptions();
 });
 
+watch(m_rev, () => {
+    chartData.value = setChartData();
+}, { deep: true });
+
 const chartData = ref();
 const chartOptions = ref();
 
@@ -53,9 +57,9 @@ const setChartData = () => {
         borderWidth: 1
     }
     let labels = []
-    for (let i = 0; i < m_rev.length; i++) {
-        labels.push(m_rev[i].label)
-        datasets.data.push(m_rev[i].price)
+    for (let i = 0; i < m_rev.value.length; i++) {
+        labels.push(m_rev.value[i].label)
+        datasets.data.push(m_rev.value[i].price)
         datasets.backgroundColor.push(palette[i]),
         datasets.borderColor.push(palette[i]);
     }

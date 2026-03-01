@@ -9,6 +9,8 @@ import { Form } from '@primevue/forms';
 import Toast from 'primevue/toast';
 import DatePicker from 'primevue/datepicker';
 import InputNumber from 'primevue/inputnumber';
+import { collection, doc, addDoc, Timestamp } from 'firebase/firestore';
+import { db, auth } from '@/firebase';
 
 
 const props = defineProps(['sort', 'setDialogVisible'])
@@ -40,10 +42,33 @@ const resolver = ({ values }) => {
     };
 };
 
-const onFormSubmit = ({ valid, values }) => {
+const onFormSubmit = async ({ valid, values }) => {
     if (valid) {
-        console.log(values)
-        toast.add({ severity: 'success', summary: 'Form is submitted.', life: 3000 });
+        const user = auth.currentUser;
+        if (!user) {
+            toast.add({ severity: 'warn', summary: 'Not signed in.', detail: 'Sign in to add entries.', life: 5000 });
+            return;
+        }
+        try {
+            const docData = {
+                hours: values.hours ?? null,
+                employees: values.employees ?? null,
+                spend: values.spend ?? null,
+                foot_traffic: values.foot_traffic ?? null,
+                date: values.date ? Timestamp.fromDate(values.date instanceof Date ? values.date : new Date(values.date)) : null,
+                price: values.price ?? null,
+                customers: values.customers ?? null,
+                avg_order_val: values.avg_order_val ?? null,
+            };
+            const entriesRef = collection(doc(db, 'users', user.uid), 'entries');
+            await addDoc(entriesRef, docData);
+            toast.add({ severity: 'success', summary: 'Form is submitted.', life: 3000 });
+            visible.value = false;
+            setTimeout(() => window.location.reload(), 800);
+        } catch (err) {
+            console.error('Firebase save error:', err);
+            toast.add({ severity: 'error', summary: 'Save failed.', detail: err?.message ?? 'Could not save to Firebase.', life: 5000 });
+        }
     }
 };
 

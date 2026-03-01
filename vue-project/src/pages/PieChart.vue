@@ -35,6 +35,10 @@ watch(isDarkMode, () => {
     chartOptions.value = setChartOptions();
 });
 
+watch(listData, () => {
+    chartData.value = setChartData();
+}, { deep: true });
+
 const chartData = ref();
 const chartOptions = ref();
 
