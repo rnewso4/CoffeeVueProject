@@ -28,17 +28,35 @@ function normalizeEntry(entry) {
 }
 
 const avg_num = ref(0)
-
-let this_list = book1 ?? []
-const list = ref(sortByDate(this_list))
-avg_num.value = getAverage([...list.value])
-
-// const list = ref([])
-
+const list = ref([])
 let top_padding = 0
 let month = 0
-
 const snackbar = useSnackbar();
+const CACHE_KEY_PREFIX = 'coffee-entries-';
+
+function getCacheKey(uid) {
+  return `${CACHE_KEY_PREFIX}${uid}`;
+}
+
+function readEntriesFromCache(uid) {
+  try {
+    const raw = localStorage.getItem(getCacheKey(uid));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeEntriesToCache(uid, entries) {
+  try {
+    localStorage.setItem(getCacheKey(uid), JSON.stringify(entries));
+  } catch (e) {
+    console.warn('Failed to write entries cache:', e);
+  }
+}
+
 
 async function loadEntriesFromFirebase() {
   const user = auth.currentUser;
@@ -46,6 +64,12 @@ async function loadEntriesFromFirebase() {
     list.value = [];
     avg_num.value = 0;
     return;
+  }
+  // Use cache immediately so refresh doesn't require waiting for Firestore
+  const cached = readEntriesFromCache(user.uid);
+  if (cached && cached.length >= 0) {
+    list.value = [...cached];
+    avg_num.value = getAverage([...list.value]);
   }
   try {
     const entriesRef = collection(doc(db, 'users', user.uid), 'entries');
@@ -55,44 +79,52 @@ async function loadEntriesFromFirebase() {
     list.value = [...entries];
     console.log(list.value)
     avg_num.value = getAverage([...list.value]);
+    writeEntriesToCache(user.uid, list.value);
   } catch (e) {
-    console.error('Failed to load entries from Firebase:', e);
-    snackbar.add({ type: 'error', text: 'Failed to load entries.' });
-    list.value = [];
-    avg_num.value = 0;
+    if (!cached) {
+      snackbar.add({ type: 'error', text: 'Failed to load entries.' });
+      list.value = [];
+      avg_num.value = 0;
+    }
+    // If we had cache, keep showing it; only clear on error when there was no cache
+  }
+  if (list.value.length < 1) {
+    let this_list = book1 ?? []
+    list.value = sortByDate(this_list)
+    avg_num.value = getAverage([...list.value])
   }
 }
 
-// const sendListToFirebase = async () => {
-//   const user = auth.currentUser;
-//   if (!user) {
-//     snackbar.add({ type: 'error', text: 'You must be signed in to sync to Firebase.' });
-//     return;
-//   }
-//   const entries = list.value ?? [];
-//   if (entries.length === 0) {
-//     snackbar.add({ type: 'info', text: 'No entries to send.' });
-//     return;
-//   }
-//   const BATCH_SIZE = 500;
-//   const entriesRef = collection(doc(db, 'users', user.uid), 'entries');
-//   try {
-//     for (let i = 0; i < entries.length; i += BATCH_SIZE) {
-//       const batch = writeBatch(db);
-//       const chunk = entries.slice(i, i + BATCH_SIZE);
-//       for (const entry of chunk) {
-//         const docRef = doc(entriesRef);
-//         const { id, ...data } = entry;
-//         batch.set(docRef, data);
-//       }
-//       await batch.commit();
-//     }
-//     snackbar.add({ type: 'success', text: 'Sending complete' });
-//   } catch (e) {
-//     console.error('Firebase sync failed:', e);
-//     snackbar.add({ type: 'error', text: 'Failed to send entries. Try again.' });
-//   }
-// }
+const sendListToFirebase = async () => {
+  const user = auth.currentUser;
+  if (!user) {
+    snackbar.add({ type: 'error', text: 'You must be signed in to sync to Firebase.' });
+    return;
+  }
+  const entries = list.value ?? [];
+  if (entries.length === 0) {
+    snackbar.add({ type: 'info', text: 'No entries to send.' });
+    return;
+  }
+  const BATCH_SIZE = 500;
+  const entriesRef = collection(doc(db, 'users', user.uid), 'entries');
+  try {
+    for (let i = 0; i < entries.length; i += BATCH_SIZE) {
+      const batch = writeBatch(db);
+      const chunk = entries.slice(i, i + BATCH_SIZE);
+      for (const entry of chunk) {
+        const docRef = doc(entriesRef);
+        const { id, ...data } = entry;
+        batch.set(docRef, data);
+      }
+      await batch.commit();
+    }
+    snackbar.add({ type: 'success', text: 'Sending complete' });
+  } catch (e) {
+    console.error('Firebase sync failed:', e);
+    snackbar.add({ type: 'error', text: 'Failed to send entries. Try again.' });
+  }
+}
 
 const show_divider = (item, index) => {
   const dateStr = item?.date;
@@ -137,9 +169,9 @@ onMounted(() => {
   });
   darkModeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
 
-  // onAuthStateChanged(auth, (user) => {
-  //   loadEntriesFromFirebase();
-  // });
+  onAuthStateChanged(auth, (user) => {
+    loadEntriesFromFirebase();
+  });
 });
 
 onUnmounted(() => {
@@ -156,7 +188,7 @@ onUnmounted(() => {
         <Card style="flex: 1; min-height: 0; width: 100%;">
           <template #content>
             <div id="card_content">
-              <revenue :sort="sort" :setDialogVisible="setDialogVisible"/>
+              <revenue :sort="sort" :setDialogVisible="setDialogVisible" />
               <v-divider class="dividers" opacity="0.7" />
               <div id="average">
                 <div>
@@ -172,7 +204,8 @@ onUnmounted(() => {
                   <v-divider class="dividers" opacity="0.7" v-show="show_divider(item, index)" id="list_divider" />
                   <div id="ind_prices" :class="top_padding > 0 && 'temp_id'">
                     <p>{{ item.date }}</p>
-                    <p>${{ (typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0).toLocaleString() }}</p>
+                    <p>${{ (typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0).toLocaleString()
+                      }}</p>
                   </div>
                 </div>
               </div>
