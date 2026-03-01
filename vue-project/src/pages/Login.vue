@@ -104,14 +104,14 @@
 #image_container {
     object-fit: contain;
     display: flex;
-    align-items: end;
+    align-items: center;
     justify-content: center;
     overflow: hidden;
     max-height: 100vh;
 }
 
 #cafe-image {
-    width: 800px;
+    width: 100%;
 }
 
 #signup {

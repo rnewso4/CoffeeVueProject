@@ -110,6 +110,7 @@
     justify-content: center;
     width: 100%;
     margin-top: 40px;
+    margin-bottom: 10PX;
 }
 #buttondiv {
     margin: 30px 0 30px 0;/*TRBL */
@@ -132,7 +133,10 @@
 #container {
     background-color: #FFF;
     height: 70%;
-    width: 450px;
+    min-height: fit-content;
+    min-width: 315px;
+    width: 30%;
+    max-width: 500px;
     border-radius: 60px;
     justify-content: center;
     align-items: center;

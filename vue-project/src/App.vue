@@ -41,7 +41,6 @@ onMounted(() => {
 html {
   width: 100%;
   min-width: 100%;
-  scrollbar-gutter: stable;
 }
 
 body, html {

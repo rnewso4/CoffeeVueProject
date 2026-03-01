@@ -66,14 +66,8 @@ onUnmounted(() => {
             <div id="circle"></div>
         </div>
         <div id="items">
-            <div id="list" class="navItem">
-                <h2 class="navText">List</h2>
-            </div>
             <div id="create" class="navItem" @click="generatePopup">
                 <h2 class="navText">Generate</h2>
-            </div>
-            <div id="filter" class="navItem">
-                <h2 class="navText">Filter</h2>
             </div>
         </div>
         <div class="card flex justify-center" style="display: flex; align-items: center; justify-content: center; width: 125px;">
