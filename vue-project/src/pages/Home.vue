@@ -75,7 +75,9 @@ async function loadEntriesFromFirebase() {
     const entriesRef = collection(doc(db, 'users', user.uid), 'entries');
     const q = query(entriesRef, orderBy('date', 'desc'));
     const snapshot = await getDocs(q);
-    const entries = snapshot.docs.map((d) => normalizeEntry({ id: d.id, ...d.data() }));
+    const entries = snapshot.docs
+      .filter((d) => d.id !== '_init' && !d.data()._placeholder)
+      .map((d) => normalizeEntry({ id: d.id, ...d.data() }));
     list.value = [...entries];
     console.log(list.value)
     avg_num.value = getAverage([...list.value]);

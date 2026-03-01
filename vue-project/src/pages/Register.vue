@@ -41,6 +41,13 @@
                 createdAt: serverTimestamp()
             })
 
+            // Create blank entries subcollection for this user
+            const entriesRef = collection(doc(db, 'users', user.uid), 'entries')
+            await setDoc(doc(entriesRef, '_init'), {
+                _placeholder: true,
+                date: serverTimestamp()
+            })
+
             setInitials(fullName.value || "")
 
             router.push('/home')
