@@ -118,7 +118,7 @@ const generate = async () => {
     const spend = v.spend ?? 0;
     const foot_traffic = v.foot_traffic ?? 0;
 
-    const apiBase = import.meta.env.VITE_API_URL || 'http://54.205.33.101:5000';
+    const apiBase = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? '' : 'http://54.205.33.101:5000');
     const url = `${apiBase}/api/data/${customers}/${avg_order_val}/${hours}/${employees}/${spend}/${foot_traffic}/`;
     console.log(url);
 
@@ -127,6 +127,10 @@ const generate = async () => {
         const res = await fetch(url, { method: 'GET' });
         if (!res.ok) throw new Error(`Server error: ${res.status}`);
         const data = await res.json();
+        const revenue = typeof data === 'number' ? data : (data?.revenue ?? data?.generated_revenue ?? data?.daily_revenue ?? data?.price);
+        if (revenue != null && typeof revenue === 'number') {
+            formValues.value.price = revenue;
+        }
         toast.add({
             severity: 'success',
             summary: 'Generated revenue',
