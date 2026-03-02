@@ -1,3 +1,1 @@
 # CoffeeVueProject
-
-Currenty under construction
