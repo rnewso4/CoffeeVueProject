@@ -79,7 +79,6 @@ async function loadEntriesFromFirebase() {
       .filter((d) => d.id !== '_init' && !d.data()._placeholder)
       .map((d) => normalizeEntry({ id: d.id, ...d.data() }));
     list.value = [...entries];
-    console.log(list.value)
     avg_num.value = getAverage([...list.value]);
     writeEntriesToCache(user.uid, list.value);
   } catch (e) {

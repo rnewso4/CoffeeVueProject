@@ -118,7 +118,17 @@ const generate = async () => {
     const spend = v.spend ?? 0;
     const foot_traffic = v.foot_traffic ?? 0;
 
-    const apiBase = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? '' : 'http://54.205.33.101:5000');
+    const apiBase = import.meta.env.VITE_UBUNTU_SERVER;
+    if (!apiBase) {
+        console.error('UBUNTU_SERVER is not set');
+        toast.add({
+            severity: 'error',
+            summary: 'Generate failed',
+            detail: 'API base URL is not configured.',
+            life: 6000
+        });
+        return;
+    }
     const url = `${apiBase}/api/data/${customers}/${avg_order_val}/${hours}/${employees}/${spend}/${foot_traffic}/`;
     console.log(url);
 

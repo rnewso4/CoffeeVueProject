@@ -44,9 +44,11 @@ const navbarBackgroundColor = computed(() => isDarkMode.value ? '#18181b' : '#FF
 
 const textColor = computed(() => isDarkMode.value ? '#FFFFFF' : '#000000')
 
+const dynamicLabel = computed(() => isDarkMode.value ? "Light Mode" : "Dark Mode");
+
 const menu = ref();
 const items = ref([
-    { label: 'Dark Mode', command: () => toggleDarkMode() },
+    { label: dynamicLabel, command: () => toggleDarkMode() },
     { label: 'Log Out', command: () => handleLogout() }
 ]);
 
