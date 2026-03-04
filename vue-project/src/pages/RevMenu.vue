@@ -8,7 +8,7 @@ const props = defineProps(['sort', 'setDialogVisible'])
 const menu = ref();
 const items = ref([
     { label: 'Sort', command: () => props.sort() },
-    { label: 'Filter', command: () => console.log("clicked") },
+    { label: 'Filter', command: () => {} },
     { label: 'View Table', command: () => props.setDialogVisible(true) }
 ]);
 

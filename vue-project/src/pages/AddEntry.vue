@@ -130,7 +130,6 @@ const generate = async () => {
         return;
     }
     const url = `${apiBase}/api/data/${customers}/${avg_order_val}/${hours}/${employees}/${spend}/${foot_traffic}/`;
-    console.log(url);
 
     try {
         toast.add({ severity: 'info', summary: 'Generating...', detail: 'Calling server...', life: 2000 });
