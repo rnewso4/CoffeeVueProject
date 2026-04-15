@@ -21,8 +21,9 @@ export default defineConfig({
   },
   server: {
     proxy: {
+      // Flask OpenAI chat API — run: cd server && pip install -r requirements.txt && OPENAI_API_KEY=... python app.py
       '/api': {
-        target: 'http://54.205.33.101:5000',
+        target: 'http://127.0.0.1:5000',
         changeOrigin: true,
       },
     },
