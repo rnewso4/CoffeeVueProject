@@ -1,20 +1,19 @@
 <script setup>
 import { initials } from '@/functions/functions'
-import { coffeeColor } from '@/variables';
 import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { signOut } from 'firebase/auth';
 import { doc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '@/firebase';
 import { Button, Menu } from 'primevue';
-import AddEntry from './AddEntry.vue';
+import AIChatbot from './AIChatbot.vue';
 
 const router = useRouter();
 
-const visible = ref(false);
-const setVisible = (bool_val) => {
-    visible.value = bool_val;
-}
+const chatVisible = ref(false);
+const setChatVisible = (bool_val) => {
+    chatVisible.value = bool_val;
+};
 
 const handleLogout = async () => {
   await signOut(auth);
@@ -74,15 +73,15 @@ onUnmounted(() => {
             <div id="circle"></div>
         </div>
         <div id="items">
-            <div id="create" class="navItem" @click="visible = true">
-                <h2 class="navText">Generate</h2>
+            <div id="create" class="navItem" @click="chatVisible = true">
+                <h2 class="navText">AI Chatbot</h2>
             </div>
         </div>
         <div class="card flex justify-center" style="display: flex; align-items: center; justify-content: center; width: 125px;">
         <Button class="initials-button" style="width: 40px; height: 40px;" severity="secondary" type="button" rounded :label="initials" @click="toggle" aria-haspopup="true" aria-controls="overlay_menu" />
         <Menu ref="menu" id="overlay_menu" :model="items" :popup="true" />
         </div>
-        <add-entry :visible="visible" :setVisible="setVisible" title="Generate Entry Using AI"/>
+        <AIChatbot :visible="chatVisible" :setVisible="setChatVisible" />
     </div>
 </template>
 
