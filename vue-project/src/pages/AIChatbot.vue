@@ -21,6 +21,10 @@ const error = ref('');
 const listRef = ref(null);
 const limitExceeded = ref(false);
 
+/** 'up' | 'down' per assistant message id (after successful POST). */
+const feedbackByMessageId = ref({});
+const feedbackSubmittingId = ref(null);
+
 async function checkTokenCost() {
     const user = auth.currentUser;
     if (!user) return;
@@ -45,6 +49,24 @@ function apiBase() {
 function chatUrl() {
     const base = apiBase();
     return base ? `${base}/api/chat` : '/api/chat';
+}
+
+function chatFeedbackUrl() {
+    const base = apiBase();
+    return base ? `${base}/api/chat/feedback` : '/api/chat/feedback';
+}
+
+async function buildAuthJsonHeaders() {
+    const headers = { 'Content-Type': 'application/json' };
+    const user = auth.currentUser;
+    if (user) {
+        try {
+            headers['Authorization'] = `Bearer ${await user.getIdToken()}`;
+        } catch {
+            /* proceed without token */
+        }
+    }
+    return headers;
 }
 
 function absoluteApiUrl(path) {
@@ -107,8 +129,61 @@ watch(
     }
 );
 
+async function setFeedback(messageId, value) {
+    const cur = feedbackByMessageId.value[messageId];
+    const next = cur === value ? null : value;
+
+    if (next == null) {
+        const copy = { ...feedbackByMessageId.value };
+        delete copy[messageId];
+        feedbackByMessageId.value = copy;
+        return;
+    }
+
+    const msg = messages.value.find((m) => m.id === messageId && m.role === 'assistant');
+    if (!msg) return;
+    if (feedbackSubmittingId.value === messageId) return;
+
+    feedbackSubmittingId.value = messageId;
+    try {
+        const headers = await buildAuthJsonHeaders();
+        const res = await fetch(chatFeedbackUrl(), {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+                assistant_response: msg.content,
+                feedback: next,
+                message_id: messageId,
+            }),
+            signal: fetchTimeoutSignal(30_000),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            const detail =
+                typeof data?.error === 'string'
+                    ? data.error
+                    : data?.detail || data?.message || `Request failed (${res.status})`;
+            throw new Error(detail);
+        }
+        const copy = { ...feedbackByMessageId.value };
+        copy[messageId] = next;
+        feedbackByMessageId.value = copy;
+    } catch (err) {
+        console.error('Chat feedback error:', err);
+        toast.add({
+            severity: 'error',
+            summary: 'Could not save feedback',
+            detail: err?.message ?? 'Unknown error',
+            life: 6000,
+        });
+    } finally {
+        feedbackSubmittingId.value = null;
+    }
+}
+
 function clearChat() {
     messages.value = [];
+    feedbackByMessageId.value = {};
     error.value = '';
     input.value = '';
 }
@@ -130,13 +205,7 @@ async function send() {
 
     const url = chatUrl();
 
-    const headers = { 'Content-Type': 'application/json' };
-    const user = auth.currentUser;
-    if (user) {
-        try {
-            headers['Authorization'] = `Bearer ${await user.getIdToken()}`;
-        } catch { /* proceed without token */ }
-    }
+    const headers = await buildAuthJsonHeaders();
 
     try {
         const res = await fetch(url, {
@@ -240,8 +309,46 @@ function onKeydown(e) {
                     class="ai-chat-row"
                     :class="m.role === 'user' ? 'ai-chat-row--user' : 'ai-chat-row--assistant'"
                 >
-                    <div class="ai-chat-bubble">
-                        {{ m.content }}
+                    <template v-if="m.role === 'user'">
+                        <div class="ai-chat-bubble">
+                            {{ m.content }}
+                        </div>
+                    </template>
+                    <div v-else class="ai-chat-assistant-block">
+                        <div class="ai-chat-bubble">
+                            {{ m.content }}
+                        </div>
+                        <div class="ai-chat-feedback" role="group" aria-label="Rate this response">
+                            <span class="ai-chat-feedback-label">Was this helpful?</span>
+                            <div class="ai-chat-feedback-buttons">
+                                <Button
+                                    type="button"
+                                    size="small"
+                                    text
+                                    icon="pi pi-thumbs-up"
+                                    class="ai-chat-feedback-btn"
+                                    :disabled="feedbackSubmittingId === m.id"
+                                    :class="{ 'ai-chat-feedback-btn--active': feedbackByMessageId[m.id] === 'up' }"
+                                    :aria-pressed="feedbackByMessageId[m.id] === 'up'"
+                                    :severity="feedbackByMessageId[m.id] === 'up' ? 'primary' : 'secondary'"
+                                    aria-label="Mark response as helpful"
+                                    @click="setFeedback(m.id, 'up')"
+                                />
+                                <Button
+                                    type="button"
+                                    size="small"
+                                    text
+                                    icon="pi pi-thumbs-down"
+                                    class="ai-chat-feedback-btn"
+                                    :disabled="feedbackSubmittingId === m.id"
+                                    :class="{ 'ai-chat-feedback-btn--active': feedbackByMessageId[m.id] === 'down' }"
+                                    :aria-pressed="feedbackByMessageId[m.id] === 'down'"
+                                    :severity="feedbackByMessageId[m.id] === 'down' ? 'primary' : 'secondary'"
+                                    aria-label="Mark response as not helpful"
+                                    @click="setFeedback(m.id, 'down')"
+                                />
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div v-if="loading" class="ai-chat-row ai-chat-row--assistant">
@@ -325,6 +432,43 @@ function onKeydown(e) {
 
 .ai-chat-row--assistant {
     justify-content: flex-start;
+}
+
+.ai-chat-assistant-block {
+    max-width: 88%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+}
+
+.ai-chat-assistant-block .ai-chat-bubble {
+    max-width: 100%;
+    align-self: stretch;
+}
+
+.ai-chat-feedback {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.15rem;
+    padding-left: 0.1rem;
+}
+
+.ai-chat-feedback-label {
+    font-size: 0.75rem;
+    opacity: 0.7;
+    user-select: none;
+}
+
+.ai-chat-feedback-buttons {
+    display: flex;
+    align-items: center;
+    gap: 0.15rem;
+}
+
+.ai-chat-feedback-btn--active :deep(.p-button-icon) {
+    opacity: 1;
 }
 
 .ai-chat-bubble {

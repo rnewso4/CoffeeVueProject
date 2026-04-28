@@ -6,6 +6,7 @@
     import { auth, db } from '@/firebase'
     import { coffeeColor } from '@/variables'
     import { setInitials } from '@/functions/functions'
+    import logoImage from '@/assets/images/logo.png'
 
     const router = useRouter()
 
@@ -54,6 +55,9 @@
 <template>
     <div id="login">
         <div id="left">
+            <div id="logo-wrap" class="items">
+                <img id="logo-image" :src="logoImage" alt="CoffeeVue logo" />
+            </div>
             <h1 id="welcome" class="items">Weclome Back!</h1>
             <v-form @submit.prevent="onSubmit" style="width: 100%;">
                 <div class="items" id="additionalpadding"><v-text-field 
@@ -136,7 +140,19 @@
 #welcome {
     font-family: 'Carter One', sans-serif;
     text-align: center;
-    margin-bottom: 50px;
+    margin-bottom: 36px;
+}
+
+#logo-wrap {
+    margin-bottom: 20px;
+}
+
+#logo-image {
+    width: clamp(88px, 15vw, 175px);
+    height: auto;
+    display: block;
+    object-fit: contain;
+    filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.16));
 }
 #login {
     min-height: 100vh;
@@ -160,5 +176,32 @@
 #right {
     background-color: #FFF;
     display: flex;
+}
+
+@media (max-width: 960px) {
+    #login {
+        grid-template-columns: 1fr;
+    }
+
+    #image_container {
+        display: none;
+    }
+
+    #left {
+        padding-top: 48px;
+        padding-bottom: 40px;
+    }
+
+    #logo-wrap {
+        margin-bottom: 16px;
+    }
+
+    #logo-image {
+        width: clamp(82px, 28vw, 116px);
+    }
+
+    #welcome {
+        margin-bottom: 24px;
+    }
 }
 </style>

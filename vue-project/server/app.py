@@ -1,5 +1,6 @@
 """
 Flask API for the Vue chat: POST /api/chat → OpenAI with tool calling (key stays on the server only).
+POST /api/chat/feedback — receive assistant reply text and thumbs up/down (no OpenAI call).
 
 Local dev:
   cd server
@@ -15,7 +16,9 @@ VITE_UBUNTU_SERVER=http://127.0.0.1:5000 in .env for direct requests.
 from __future__ import annotations
 
 import json
+import logging
 import os
+from datetime import datetime, timezone
 from typing import Any
 
 import firebase_admin
@@ -31,6 +34,7 @@ from book1_revenue import (
 )
 
 app = Flask(__name__)
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Firebase Admin — required for per-user token-cost tracking
@@ -340,6 +344,67 @@ def book1_report_pdf():
 @app.route("/api/chat", methods=["OPTIONS"])
 def chat_options():
     return ("", 204)
+
+
+@app.route("/api/chat/feedback", methods=["OPTIONS"])
+def chat_feedback_options():
+    return ("", 204)
+
+
+@app.route("/api/chat/feedback", methods=["POST"])
+def chat_feedback():
+    """Store or log user thumbs up/down for an assistant message (does not call OpenAI)."""
+    uid: str | None = None
+    if _fb_db is not None:
+        uid = _verify_firebase_token(request)
+        if uid is None:
+            return jsonify({"error": "Authentication required."}), 401
+
+    body = request.get_json(silent=True) or {}
+    text = body.get("assistant_response")
+    fb = body.get("feedback")
+    if not isinstance(text, str) or not text.strip():
+        return jsonify({"error": "assistant_response must be a non-empty string."}), 400
+    if fb not in ("up", "down"):
+        return jsonify({"error": 'feedback must be "up" or "down".'}), 400
+
+    mid = body.get("message_id")
+    message_id: int | None
+    if isinstance(mid, int):
+        message_id = mid
+    elif mid is not None:
+        try:
+            message_id = int(mid)
+        except (TypeError, ValueError):
+            message_id = None
+    else:
+        message_id = None
+
+    record: dict[str, Any] = {
+        "assistant_response": text,
+        "feedback": fb,
+        "message_id": message_id,
+        "uid": uid,
+        "received_at": datetime.now(timezone.utc).isoformat(),
+    }
+    log_payload = {**record, "assistant_response": text[:500] + ("…" if len(text) > 500 else "")}
+    logger.info("chat_feedback %s", json.dumps(log_payload, default=str))
+
+    if _fb_db is not None and uid is not None:
+        try:
+            doc: dict[str, Any] = {
+                "assistant_response": text,
+                "feedback": fb,
+                "created_at": datetime.now(timezone.utc),
+            }
+            if message_id is not None:
+                doc["message_id"] = message_id
+            _fb_db.collection("chat_feedback").add(doc)
+        except Exception as e:
+            logger.exception("chat_feedback Firestore write failed")
+            return jsonify({"error": f"Could not store feedback: {e!s}"}), 500
+
+    return jsonify({"ok": True})
 
 
 @app.route("/api/chat", methods=["POST"])

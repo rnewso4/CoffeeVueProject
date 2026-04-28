@@ -7,6 +7,7 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '@/firebase';
 import { Button, Menu } from 'primevue';
 import AIChatbot from './AIChatbot.vue';
+import logoImage from '@/assets/images/logo.png';
 
 const router = useRouter();
 
@@ -70,7 +71,7 @@ onUnmounted(() => {
 <template>
     <div id="container">
         <div id="logo">
-            <div id="circle"></div>
+            <img id="logo-image" :src="logoImage" alt="Logo" />
         </div>
         <div id="items">
             <div id="create" class="navItem" @click="chatVisible = true">
@@ -165,13 +166,12 @@ onUnmounted(() => {
     align-items: center;
 }
 
-#circle {
+#logo-image {
     height: 40px;
     width: 40px;
-    background-color: #bbb;
-    border-radius: 50%;
     display: flex;
     justify-content: center;
     align-items: center;
+    object-fit: contain;
 }
 </style>
