@@ -1,6 +1,6 @@
 """
 Flask API for the Vue chat: POST /api/chat → OpenAI with tool calling (key stays on the server only).
-POST /api/chat/feedback — receive assistant reply text and thumbs up/down (no OpenAI call).
+POST /api/chat/feedback → append JSON lines to user_responses.log.
 
 Local dev:
   cd server
@@ -16,8 +16,8 @@ VITE_UBUNTU_SERVER=http://127.0.0.1:5000 in .env for direct requests.
 from __future__ import annotations
 
 import json
-import logging
 import os
+import base64
 from datetime import datetime, timezone
 from typing import Any
 
@@ -31,10 +31,10 @@ from book1_revenue import (
     describe_book1_ledger,
     latest_year_and_monthly_revenue,
     sum_revenue as sum_revenue_from_ledger,
+    top_daily_revenue as top_daily_revenue_from_ledger,
 )
 
 app = Flask(__name__)
-logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Firebase Admin — required for per-user token-cost tracking
@@ -52,7 +52,7 @@ except Exception as _fb_err:
     print("[WARN] Token-cost tracking will be disabled.")
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
-OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-5.4-2026-03-05")
 MAX_TOOL_ROUNDS = 10
 
 
@@ -110,12 +110,45 @@ def _add_token_cost(uid: str, cost: float) -> None:
     ref.set({"token_cost": firebase_firestore.firestore.Increment(cost)}, merge=True)
 
 
+def _get_user_entries(uid: str) -> list[dict[str, Any]]:
+    if _fb_db is None:
+        return []
+    docs = _fb_db.collection("users").document(uid).collection("entries").stream()
+    out: list[dict[str, Any]] = []
+    for doc in docs:
+        data = doc.to_dict() or {}
+        if isinstance(data, dict):
+            out.append(data)
+    return out
+
+
 def _calculate_cost(usage) -> float:
     if not usage:
         return 0.0
     prompt = getattr(usage, "prompt_tokens", 0) or 0
     completion = getattr(usage, "completion_tokens", 0) or 0
     return prompt * INPUT_COST_PER_TOKEN + completion * OUTPUT_COST_PER_TOKEN
+
+
+_USER_RESPONSES_LOG = os.path.join(os.path.dirname(os.path.abspath(__file__)), "user_responses.log")
+
+
+def _log_chat_feedback(
+    assistant_response: str,
+    feedback: str,
+    message_id: str | int | None,
+) -> None:
+    line = json.dumps(
+        {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "assistant_response": assistant_response,
+            "feedback": feedback,
+            "message_id": message_id,
+        },
+        ensure_ascii=False,
+    )
+    with open(_USER_RESPONSES_LOG, "a", encoding="utf-8") as f:
+        f.write(line + "\n")
 
 SYSTEM_MESSAGE = {
     "role": "system",
@@ -131,14 +164,17 @@ SYSTEM_MESSAGE = {
         "5. If the user explicitly asks for explanation or steps, then you may elaborate — otherwise do not. "
         "TOOL RULES (strict): "
         "Never guess or compute from memory — always call a tool when data is involved. "
-        "Daily revenue is stored in a ledger CSV as column `price` (USD), with dates in column `date` (M/D/YY). "
+        "Daily revenue comes from the authenticated user's ledger entries where `price` is USD and `date` is the day. "
         "For total revenue by month, year, or date range → call `sum_revenue`. "
+        "For which calendar day had the highest revenue, best day, or top revenue days → call `top_daily_revenue` "
+        "(optional `year` and `month` for e.g. best day in February 2025 or in all of 2024; do not infer the date from column max alone). "
         "For questions about variables, typical ranges, correlations, what drives profit, "
         "or how many customers appeared on days near a revenue level → call `describe_book1_ledger` "
         "(set `revenue_target_usd` for what-if daily revenue questions). "
         "When the user asks for a report, PDF, download, or summary of the data → immediately call "
         "`generate_book1_pdf_report` with no arguments. This tool takes NO parameters and produces a "
-        "ready-made PDF with monthly/yearly revenue summaries and a bar chart for the latest year. "
+        "ready-made PDF with monthly/yearly revenue summaries and one page per calendar year in the data. "
+        "The server response includes downloadable PDF bytes directly from /api/chat; no separate report endpoint is required. "
         "NEVER ask the user for details, format, or preferences before calling it — just call it. "
         "Treat correlations as observational, not causal."
     ),
@@ -169,15 +205,50 @@ SUM_REVENUE_TOOL: dict[str, Any] = {
     },
 }
 
+TOP_DAILY_REVENUE_TOOL: dict[str, Any] = {
+    "type": "function",
+    "function": {
+        "name": "top_daily_revenue",
+        "description": (
+            "List the highest-revenue days in the ledger with their calendar dates and amounts (column `price`). "
+            "Use for: best day, which day made the most money, top N revenue days, record sales day. "
+            "Pass `year` to restrict to that calendar year (e.g. best day in 2024). Pass `year` and `month` (1–12) "
+            "for a single month (e.g. best day in February 2025). Omit both for best days across the whole ledger."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "integer",
+                    "description": "How many days to return, highest first (default 5, max 50).",
+                },
+                "year": {
+                    "type": "integer",
+                    "description": (
+                        "Optional four-digit calendar year. When set, only days in that year are considered. "
+                        "Required when `month` is set."
+                    ),
+                },
+                "month": {
+                    "type": "integer",
+                    "description": "Optional month 1–12; must be used together with `year`.",
+                },
+            },
+            "required": [],
+        },
+    },
+}
+
 DESCRIBE_BOOK1_LEDGER_TOOL: dict[str, Any] = {
     "type": "function",
     "function": {
         "name": "describe_book1_ledger",
         "description": (
-            "Return all ledger variables (CSV columns) with short definitions, per-column numeric summaries, "
+            "Return all ledger variables (user entry fields) with short definitions, per-column numeric summaries, "
             "Pearson correlations between each metric and daily revenue (`price`), and optional example days "
             "closest to a target daily revenue (useful for questions like which fields matter or how many "
-            "customers occurred near $X revenue)."
+            "customers occurred near $X revenue). Does not identify which date had the highest revenue — use "
+            "top_daily_revenue for that."
         ),
         "parameters": {
             "type": "object",
@@ -205,8 +276,9 @@ GENERATE_BOOK1_PDF_REPORT_TOOL: dict[str, Any] = {
         "name": "generate_book1_pdf_report",
         "description": (
             "Generate and deliver a pre-built PDF report of the café ledger. The report always includes: "
-            "a text summary of monthly and yearly revenues, and a bar chart of monthly revenue for the "
-            "latest calendar year. Takes NO parameters — call it immediately whenever the user mentions "
+            "a text summary of monthly and yearly revenues, with one report page per calendar year in the "
+            "ledger and a monthly bar chart for each year. The PDF bytes are returned in the /api/chat response payload. "
+            "Takes NO parameters — call it immediately whenever the user mentions "
             "report, PDF, download, summary, or export. Do NOT ask the user for any extra details first."
         ),
         "parameters": {"type": "object", "properties": {}, "required": []},
@@ -215,6 +287,7 @@ GENERATE_BOOK1_PDF_REPORT_TOOL: dict[str, Any] = {
 
 TOOLS: list[dict[str, Any]] = [
     SUM_REVENUE_TOOL,
+    TOP_DAILY_REVENUE_TOOL,
     DESCRIBE_BOOK1_LEDGER_TOOL,
     GENERATE_BOOK1_PDF_REPORT_TOOL,
 ]
@@ -267,7 +340,7 @@ def _run_sum_revenue(arguments: dict[str, Any]) -> dict[str, Any]:
             m = int(month)
         except (TypeError, ValueError):
             return {"error": "month must be an integer when provided."}
-    return sum_revenue_from_ledger(y, m)
+    return sum_revenue_from_ledger(y, m, entries=arguments.get("_entries"))
 
 
 def _run_describe_book1_ledger(arguments: dict[str, Any]) -> dict[str, Any]:
@@ -290,39 +363,174 @@ def _run_describe_book1_ledger(arguments: dict[str, Any]) -> dict[str, Any]:
     return describe_book1_ledger(
         include_correlations=include_correlations,
         revenue_target_usd=revenue_target,
+        entries=arguments.get("_entries"),
     )
 
 
+def _run_top_daily_revenue(arguments: dict[str, Any]) -> dict[str, Any]:
+    raw_lim = arguments.get("limit")
+    if raw_lim is None or raw_lim == "":
+        lim = 5
+    else:
+        try:
+            lim = int(raw_lim)
+        except (TypeError, ValueError):
+            return {"error": "limit must be an integer when provided."}
+
+    raw_y = arguments.get("year")
+    year: int | None
+    if raw_y is None or raw_y == "":
+        year = None
+    else:
+        try:
+            year = int(raw_y)
+        except (TypeError, ValueError):
+            return {"error": "year must be an integer when provided."}
+
+    raw_m = arguments.get("month")
+    month: int | None
+    if raw_m is None or raw_m == "":
+        month = None
+    else:
+        try:
+            month = int(raw_m)
+        except (TypeError, ValueError):
+            return {"error": "month must be an integer when provided."}
+
+    return top_daily_revenue_from_ledger(lim, year=year, month=month, entries=arguments.get("_entries"))
+
+
 def _run_generate_book1_pdf_report(arguments: dict[str, Any]) -> dict[str, Any]:
-    _ = arguments
-    info = latest_year_and_monthly_revenue()
-    if info.get("error"):
-        return {"ready": False, "error": info["error"]}
+    entries = arguments.get("_entries")
+    if isinstance(entries, list):
+        print(f"[REPORT] Tool source: Firebase entries ({len(entries)} rows)")
+    else:
+        print("[REPORT] Tool source: default CSV path")
+    if not isinstance(entries, list) or len(entries) == 0:
+        return {"ready": False, "error": "No Firebase entries found for this user."}
+
+    years: dict[int, dict[str, Any]] = {}
+    ledger_min: str | None = None
+    ledger_max: str | None = None
+    for row in entries:
+        if not isinstance(row, dict):
+            continue
+        raw_date = row.get("date")
+        d = None
+        if raw_date is not None:
+            raw = str(raw_date).strip()
+            for fmt in ("%m/%d/%y", "%Y-%m-%d", "%m/%d/%Y"):
+                try:
+                    d = datetime.strptime(raw, fmt).date()
+                    break
+                except ValueError:
+                    pass
+            if d is None:
+                try:
+                    d = datetime.fromisoformat(raw.replace("Z", "+00:00")).date()
+                except ValueError:
+                    d = None
+        if d is None:
+            continue
+        try:
+            revenue = float(row.get("price"))
+        except (TypeError, ValueError):
+            continue
+
+        d_iso = d.isoformat()
+        if ledger_min is None or d_iso < ledger_min:
+            ledger_min = d_iso
+        if ledger_max is None or d_iso > ledger_max:
+            ledger_max = d_iso
+
+        bucket = years.setdefault(
+            d.year,
+            {
+                "year": d.year,
+                "currency": "USD",
+                "monthly_totals_usd": {str(m): 0.0 for m in range(1, 13)},
+                "year_total_revenue_usd": 0.0,
+                "row_count_in_year": 0,
+                "date_range_in_year": {"min": d_iso, "max": d_iso},
+            },
+        )
+        bucket["monthly_totals_usd"][str(d.month)] += revenue
+        bucket["year_total_revenue_usd"] += revenue
+        bucket["row_count_in_year"] += 1
+        if d_iso < bucket["date_range_in_year"]["min"]:
+            bucket["date_range_in_year"]["min"] = d_iso
+        if d_iso > bucket["date_range_in_year"]["max"]:
+            bucket["date_range_in_year"]["max"] = d_iso
+
+    if not years:
+        return {"ready": False, "error": "No rows with valid dates and revenue in Firebase entries."}
+
+    month_labels = (
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+    )
+    year_items: list[dict[str, Any]] = []
+    for y in sorted(years.keys()):
+        item = years[y]
+        monthly_pairs = [(m, float(item["monthly_totals_usd"][str(m)])) for m in range(1, 13)]
+        nonzero = [(m, v) for m, v in monthly_pairs if v > 0]
+        if nonzero:
+            best_m, best_v = max(nonzero, key=lambda t: t[1])
+            worst_m, worst_v = min(nonzero, key=lambda t: t[1])
+        else:
+            best_m = worst_m = None
+            best_v = worst_v = 0.0
+
+        item["monthly_totals_usd"] = {str(m): round(v, 2) for m, v in monthly_pairs}
+        item["year_total_revenue_usd"] = round(float(item["year_total_revenue_usd"]), 2)
+        item["best_month"] = {
+            "month": best_m,
+            "label": month_labels[best_m - 1] if best_m else None,
+            "revenue_usd": round(best_v, 2),
+        }
+        item["worst_month"] = {
+            "month": worst_m,
+            "label": month_labels[worst_m - 1] if worst_m else None,
+            "revenue_usd": round(worst_v, 2),
+        }
+        year_items.append(item)
+
+    print(f"[REPORT] Years in dataset: {[item['year'] for item in year_items]}")
+
+    latest_year = year_items[-1]
     return {
         "ready": True,
-        "year": info["year"],
+        "year": latest_year["year"],
         "currency": "USD",
         "download_path": "/api/reports/book1.pdf",
-        "summary": {
-            "year_total_revenue_usd": info.get("year_total_revenue"),
-            "row_count_in_year": info.get("row_count_in_year"),
-            "row_count_ledger": info.get("row_count_ledger"),
-            "ledger_date_range": info.get("ledger_date_range"),
-            "date_range_in_year": info.get("date_range_in_year"),
-            "monthly_totals_usd": info.get("monthly"),
-            "best_month": info.get("best_month"),
-            "worst_month": info.get("worst_month"),
-        },
+        "row_count_ledger": len(entries),
+        "ledger_date_range": {"min": ledger_min, "max": ledger_max},
+        "years": year_items,
+        "summary": {"years_count": len(year_items), "latest_year": latest_year},
     }
 
 
-def _dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+def _dispatch_tool(name: str, arguments: dict[str, Any], entries: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    args = dict(arguments)
+    args["_entries"] = entries or []
     if name == "sum_revenue":
-        return _run_sum_revenue(arguments)
+        return _run_sum_revenue(args)
+    if name == "top_daily_revenue":
+        return _run_top_daily_revenue(args)
     if name == "describe_book1_ledger":
-        return _run_describe_book1_ledger(arguments)
+        return _run_describe_book1_ledger(args)
     if name == "generate_book1_pdf_report":
-        return _run_generate_book1_pdf_report(arguments)
+        return _run_generate_book1_pdf_report(args)
     return {"error": f"Unknown tool: {name}."}
 
 
@@ -330,7 +538,14 @@ def _dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
 def book1_report_pdf():
     if request.method == "OPTIONS":
         return ("", 204)
-    raw, err = build_book1_pdf_bytes()
+    if _fb_db is None:
+        return jsonify({"error": "Firebase is not configured on the server."}), 503
+    uid = _verify_firebase_token(request)
+    if uid is None:
+        return jsonify({"error": "Authentication required."}), 401
+    user_entries = _get_user_entries(uid)
+    print(f"[REPORT] Download source: Firebase entries ({len(user_entries)} rows)")
+    raw, err = build_book1_pdf_bytes(entries=user_entries)
     if raw is None:
         return jsonify({"error": err or "Could not build PDF."}), 500
     fn = default_report_filename()
@@ -353,57 +568,19 @@ def chat_feedback_options():
 
 @app.route("/api/chat/feedback", methods=["POST"])
 def chat_feedback():
-    """Store or log user thumbs up/down for an assistant message (does not call OpenAI)."""
-    uid: str | None = None
-    if _fb_db is not None:
-        uid = _verify_firebase_token(request)
-        if uid is None:
-            return jsonify({"error": "Authentication required."}), 401
-
     body = request.get_json(silent=True) or {}
-    text = body.get("assistant_response")
-    fb = body.get("feedback")
-    if not isinstance(text, str) or not text.strip():
+    assistant_response = body.get("assistant_response")
+    feedback = body.get("feedback")
+    message_id = body.get("message_id")
+
+    if not isinstance(assistant_response, str) or not assistant_response.strip():
         return jsonify({"error": "assistant_response must be a non-empty string."}), 400
-    if fb not in ("up", "down"):
+    if feedback not in ("up", "down"):
         return jsonify({"error": 'feedback must be "up" or "down".'}), 400
+    if message_id is not None and not isinstance(message_id, (str, int)):
+        return jsonify({"error": "message_id must be a string or number if provided."}), 400
 
-    mid = body.get("message_id")
-    message_id: int | None
-    if isinstance(mid, int):
-        message_id = mid
-    elif mid is not None:
-        try:
-            message_id = int(mid)
-        except (TypeError, ValueError):
-            message_id = None
-    else:
-        message_id = None
-
-    record: dict[str, Any] = {
-        "assistant_response": text,
-        "feedback": fb,
-        "message_id": message_id,
-        "uid": uid,
-        "received_at": datetime.now(timezone.utc).isoformat(),
-    }
-    log_payload = {**record, "assistant_response": text[:500] + ("…" if len(text) > 500 else "")}
-    logger.info("chat_feedback %s", json.dumps(log_payload, default=str))
-
-    if _fb_db is not None and uid is not None:
-        try:
-            doc: dict[str, Any] = {
-                "assistant_response": text,
-                "feedback": fb,
-                "created_at": datetime.now(timezone.utc),
-            }
-            if message_id is not None:
-                doc["message_id"] = message_id
-            _fb_db.collection("chat_feedback").add(doc)
-        except Exception as e:
-            logger.exception("chat_feedback Firestore write failed")
-            return jsonify({"error": f"Could not store feedback: {e!s}"}), 500
-
+    _log_chat_feedback(assistant_response.strip(), feedback, message_id)
     return jsonify({"ok": True})
 
 
@@ -414,11 +591,13 @@ def chat():
 
     # --- Auth & token-cost gate ---
     uid: str | None = None
+    user_entries: list[dict[str, Any]] = []
     current_cost = 0.0
     if _fb_db is not None:
         uid = _verify_firebase_token(request)
         if uid is None:
             return jsonify({"error": "Authentication required."}), 401
+        user_entries = _get_user_entries(uid)
         current_cost = _get_token_cost(uid)
         if current_cost >= TOKEN_COST_LIMIT:
             return jsonify({
@@ -443,7 +622,7 @@ def chat():
 
     messages: list[dict[str, Any]] = [SYSTEM_MESSAGE, *messages_in]
     client = OpenAI(api_key=OPENAI_API_KEY)
-    offer_pdf_download = False
+    inline_downloads: list[dict[str, Any]] = []
     total_cost = 0.0
 
     for _ in range(MAX_TOOL_ROUNDS):
@@ -474,9 +653,22 @@ def chat():
                     args = {}
                 if not isinstance(args, dict):
                     args = {}
-                result = _dispatch_tool(fn.name, args)
+                result = _dispatch_tool(fn.name, args, entries=user_entries)
                 if fn.name == "generate_book1_pdf_report" and isinstance(result, dict) and result.get("ready"):
-                    offer_pdf_download = True
+                    pdf_bytes, pdf_err = build_book1_pdf_bytes(entries=user_entries)
+                    if pdf_bytes is None:
+                        result = {
+                            "ready": False,
+                            "error": pdf_err or "Could not build PDF.",
+                        }
+                    else:
+                        inline_downloads.append(
+                            {
+                                "filename": default_report_filename(),
+                                "mime_type": "application/pdf",
+                                "content_base64": base64.b64encode(pdf_bytes).decode("ascii"),
+                            }
+                        )
                 messages.append(
                     {
                         "role": "tool",
@@ -493,11 +685,14 @@ def chat():
         text = msg.content
         if text is None or text == "":
             return jsonify({"error": "Model returned no text response."}), 502
-        payload: dict[str, Any] = {"reply": text, "token_cost": current_cost + total_cost}
-        if offer_pdf_download:
-            payload["downloads"] = [
-                {"url": "/api/reports/book1.pdf", "filename": default_report_filename()},
-            ]
+        updated_cost = current_cost + total_cost
+        print(
+            f"[INFO] Token cost request=${total_cost:.6f}, total=${updated_cost:.6f}, "
+            f"user={uid or 'anonymous'}"
+        )
+        payload: dict[str, Any] = {"reply": text, "token_cost": updated_cost}
+        if inline_downloads:
+            payload["downloads"] = inline_downloads
         return jsonify(payload)
 
     return jsonify({"error": "Too many tool rounds; aborting."}), 502

@@ -77,19 +77,43 @@ function absoluteApiUrl(path) {
 
 async function downloadReportFiles(entries) {
     for (const item of entries) {
-        const path = typeof item?.url === 'string' ? item.url : '';
         const filename =
             typeof item?.filename === 'string' && item.filename.trim() !== ''
                 ? item.filename.trim()
                 : 'download.pdf';
-        if (!path) continue;
-        const url = absoluteApiUrl(path);
-        const res = await fetch(url, { signal: fetchTimeoutSignal(60_000) });
-        if (!res.ok) {
-            const errText = await res.text().catch(() => '');
-            throw new Error(errText || `Download failed (${res.status}).`);
+        const mimeType =
+            typeof item?.mime_type === 'string' && item.mime_type.trim() !== ''
+                ? item.mime_type.trim()
+                : 'application/octet-stream';
+        const base64Content =
+            typeof item?.content_base64 === 'string' ? item.content_base64.trim() : '';
+        const path = typeof item?.url === 'string' ? item.url : '';
+        let blob;
+
+        if (base64Content) {
+            const binary = atob(base64Content);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i += 1) {
+                bytes[i] = binary.charCodeAt(i);
+            }
+            blob = new Blob([bytes], { type: mimeType });
+        } else if (path) {
+            const url = absoluteApiUrl(path);
+            const headers = await buildAuthJsonHeaders();
+            delete headers['Content-Type'];
+            const res = await fetch(url, {
+                headers,
+                signal: fetchTimeoutSignal(60_000),
+            });
+            if (!res.ok) {
+                const errText = await res.text().catch(() => '');
+                throw new Error(errText || `Download failed (${res.status}).`);
+            }
+            blob = await res.blob();
+        } else {
+            continue;
         }
-        const blob = await res.blob();
+
         const href = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = href;
