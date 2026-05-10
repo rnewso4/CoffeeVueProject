@@ -2,10 +2,21 @@
     import { ref } from 'vue'
     import { useRouter } from 'vue-router'
     import { createUserWithEmailAndPassword } from 'firebase/auth'
-    import { collection, doc, setDoc, serverTimestamp } from 'firebase/firestore'
+    import { collection, doc, setDoc, serverTimestamp, writeBatch, Timestamp } from 'firebase/firestore'
     import { auth, db } from '@/firebase'
     import { coffeeColor } from '@/variables'
     import { setInitials } from '@/functions/functions'
+    import book1Csv from '@/data/book1.csv'
+
+    /** CSV dates like M/D/YY → local Date for Firestore Timestamp */
+    function parseLedgerDate(str) {
+        if (!str || typeof str !== 'string') return new Date()
+        const parts = str.split('/').map((p) => parseInt(p.trim(), 10))
+        if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return new Date()
+        let [month, day, year] = parts
+        if (year < 100) year += 2000
+        return new Date(year, month - 1, day)
+    }
 
     const router = useRouter()
 
@@ -42,11 +53,31 @@
             })
 
             // Create blank entries subcollection for this user
-            const entriesRef = collection(doc(db, 'users', user.uid), 'entries')
-            await setDoc(doc(entriesRef, '_init'), {
-                _placeholder: true,
-                date: serverTimestamp()
-            })
+            // const entriesRef = collection(doc(db, 'users', user.uid), 'entries')
+            // await setDoc(doc(entriesRef, '_init'), {
+            //     _placeholder: true,
+            //     date: serverTimestamp()
+            // })
+
+            const rows = Array.isArray(book1Csv) ? book1Csv : []
+            if (rows.length > 0) {
+                const entriesRef = collection(doc(db, 'users', user.uid), 'entries')
+                const batch = writeBatch(db)
+                for (const row of rows) {
+                    const ref = doc(entriesRef)
+                    batch.set(ref, {
+                        date: Timestamp.fromDate(parseLedgerDate(String(row.date ?? ''))),
+                        price: row.price != null && row.price !== '' ? Number(row.price) : null,
+                        customers: row.customers != null && row.customers !== '' ? Number(row.customers) : null,
+                        avg_order_val: row.avg_order_val != null && row.avg_order_val !== '' ? Number(row.avg_order_val) : null,
+                        hours: row.hours != null && row.hours !== '' ? Number(row.hours) : null,
+                        employees: row.employees != null && row.employees !== '' ? Number(row.employees) : null,
+                        spend: row.spend != null && row.spend !== '' ? Number(row.spend) : null,
+                        foot_traffic: row.foot_traffic != null && row.foot_traffic !== '' ? Number(row.foot_traffic) : null,
+                    })
+                }
+                await batch.commit()
+            }
 
             setInitials(fullName.value || "")
 
