@@ -2,7 +2,7 @@
 import { ref, watch, nextTick } from 'vue';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/firebase';
-import { Dialog, Textarea, Button, Toast } from 'primevue';
+import { Dialog, InputText, Button, Toast } from 'primevue';
 import { useToast } from 'primevue/usetoast';
 
 const TOKEN_COST_LIMIT = 1.0;
@@ -20,6 +20,11 @@ const loading = ref(false);
 const error = ref('');
 const listRef = ref(null);
 const limitExceeded = ref(false);
+
+const dialogPt = {
+    root: { class: 'ai-chat-dialog-root' },
+    header: { class: 'ai-chat-dialog-header' },
+};
 
 /** 'up' | 'down' per assistant message id (after successful POST). */
 const feedbackByMessageId = ref({});
@@ -302,8 +307,8 @@ async function send() {
     }
 }
 
-function onKeydown(e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
+function onComposerKeydown(e) {
+    if (e.key === 'Enter') {
         e.preventDefault();
         send();
     }
@@ -314,19 +319,29 @@ function onKeydown(e) {
     <Dialog
         :visible="props.visible"
         modal
-        header="AI Chatbot"
-        :style="{ width: 'min(440px, 92vw)', maxHeight: '78vh' }"
+        maximizable
+        aria-labelledby="ai-chat-dialog-title"
+        :style="{ width: 'min(440px, 92vw)' }"
         contentClass="ai-chat-dialog-content"
+        :pt="dialogPt"
         @update:visible="(v) => props.setVisible(v)"
+        @maximize="() => nextTick(() => scrollToBottom())"
+        @unmaximize="() => nextTick(() => scrollToBottom())"
     >
+        <template #header>
+            <span id="ai-chat-dialog-title" class="ai-chat-dialog-title">New Chat</span>
+        </template>
         <div class="ai-chat-wrap">
-            <div class="ai-chat-toolbar">
-                <Button type="button" label="Clear chat" size="small" severity="secondary" text @click="clearChat" />
-            </div>
             <div ref="listRef" class="ai-chat-messages" role="log" aria-live="polite">
-                <p v-if="messages.length === 0 && !loading" class="ai-chat-hint">
-                    Ask a question about your café data or business. Requires POST /api/chat on your backend (OpenAI key stays on the server only).
-                </p>
+                <div v-if="messages.length === 0 && !loading" class="ai-chat-greeting">
+                    <p class="ai-chat-greeting-line">
+                        <span class="ai-chat-greeting-hi">Hi,</span>
+                        <span class="ai-chat-greeting-help">How can I help you?</span>
+                    </p>
+                    <p class="ai-chat-greeting-note">
+                        Ask about your café data or business. Chat uses POST /api/chat on your server; the OpenAI key stays on the server only.
+                    </p>
+                </div>
                 <div
                     v-for="m in messages"
                     :key="m.id"
@@ -379,18 +394,40 @@ function onKeydown(e) {
                     <div class="ai-chat-bubble ai-chat-bubble--typing">Thinking…</div>
                 </div>
             </div>
+            <div class="ai-chat-footer-row">
+                <Button
+                    type="button"
+                    label="Clear conversation"
+                    size="small"
+                    severity="secondary"
+                    text
+                    class="ai-chat-clear"
+                    :disabled="loading || (messages.length === 0 && !error)"
+                    @click="clearChat"
+                />
+            </div>
             <p v-if="error" class="ai-chat-error">{{ error }}</p>
             <div class="ai-chat-composer">
-                <Textarea
-                    v-model="input"
-                    class="ai-chat-input"
-                    autoResize
-                    rows="2"
-                    placeholder="Type a message…"
-                    :disabled="loading || limitExceeded"
-                    @keydown="onKeydown"
-                />
-                <Button type="button" label="Send" :disabled="loading || !input.trim() || limitExceeded" @click="send" />
+                <div class="ai-chat-composer-pill">
+                    <InputText
+                        v-model="input"
+                        class="ai-chat-input"
+                        placeholder="Send a message…"
+                        :disabled="loading || limitExceeded"
+                        @keydown="onComposerKeydown"
+                    />
+                    <Button
+                        type="button"
+                        icon="pi pi-send"
+                        rounded
+                        text
+                        severity="secondary"
+                        class="ai-chat-send"
+                        :disabled="loading || !input.trim() || limitExceeded"
+                        aria-label="Send message"
+                        @click="send"
+                    />
+                </div>
             </div>
         </div>
         <Toast position="bottom-right" />
@@ -423,26 +460,53 @@ function onKeydown(e) {
     max-height: min(62vh, 520px);
 }
 
-.ai-chat-toolbar {
-    display: flex;
-    justify-content: flex-end;
-}
-
 .ai-chat-messages {
-    flex: 1;
+    flex: 1 1 auto;
+    min-height: 0;
     overflow-y: auto;
-    padding: 0.25rem 0.25rem 0.5rem;
+    padding: 0.35rem 0.35rem 0.5rem;
     display: flex;
     flex-direction: column;
     gap: 0.65rem;
 }
 
-.ai-chat-hint {
+.ai-chat-greeting {
+    padding: 0.35rem 0.25rem 0.75rem;
+    text-align: left;
+}
+
+.ai-chat-greeting-line {
+    margin: 0 0 0.5rem;
+    font-size: 1.05rem;
+    line-height: 1.45;
+    color: var(--p-text-color);
+}
+
+.ai-chat-greeting-hi {
+    font-weight: 400;
+    margin-right: 0.25rem;
+}
+
+.ai-chat-greeting-help {
+    font-weight: 700;
+}
+
+.ai-chat-greeting-note {
     margin: 0;
-    padding: 0.75rem;
-    font-size: 0.9rem;
-    opacity: 0.75;
-    text-align: center;
+    font-size: 0.8rem;
+    line-height: 1.45;
+    color: color-mix(in srgb, var(--p-text-color) 68%, transparent);
+    max-width: 26rem;
+}
+
+.ai-chat-footer-row {
+    display: flex;
+    justify-content: center;
+    padding: 0 0.25rem;
+}
+
+.ai-chat-clear {
+    opacity: 0.85;
 }
 
 .ai-chat-row {
@@ -476,12 +540,12 @@ function onKeydown(e) {
     flex-direction: column;
     align-items: flex-start;
     gap: 0.15rem;
-    padding-left: 0.1rem;
+    padding-left: 0.15rem;
 }
 
 .ai-chat-feedback-label {
     font-size: 0.75rem;
-    opacity: 0.7;
+    color: color-mix(in srgb, var(--p-text-color) 58%, transparent);
     user-select: none;
 }
 
@@ -497,28 +561,26 @@ function onKeydown(e) {
 
 .ai-chat-bubble {
     max-width: 88%;
-    padding: 0.55rem 0.75rem;
-    border-radius: 12px;
+    padding: 0.6rem 0.85rem;
+    border-radius: 14px;
     white-space: pre-wrap;
     word-break: break-word;
     font-size: 0.95rem;
     line-height: 1.45;
-}
-
-.ai-chat-row--user .ai-chat-bubble {
-    background: var(--p-primary-color);
-    color: var(--p-primary-contrast-color);
-    border-bottom-right-radius: 4px;
-}
-
-.ai-chat-row--assistant .ai-chat-bubble {
-    background: var(--p-content-border-color);
+    background: var(--p-surface-0);
     color: var(--p-text-color);
-    border-bottom-left-radius: 4px;
+    border: 1px solid color-mix(in srgb, var(--p-content-border-color) 65%, transparent);
+    box-shadow: 0 1px 2px color-mix(in srgb, var(--p-text-color) 6%, transparent);
+}
+
+.ai-chat-row--user .ai-chat-bubble,
+.ai-chat-row--assistant .ai-chat-bubble {
+    background: var(--p-surface-0);
+    color: var(--p-text-color);
 }
 
 .ai-chat-bubble--typing {
-    opacity: 0.85;
+    opacity: 0.88;
     font-style: italic;
 }
 
@@ -529,15 +591,62 @@ function onKeydown(e) {
 }
 
 .ai-chat-composer {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    padding-top: 0.25rem;
-    border-top: 1px solid var(--p-content-border-color);
+    padding-top: 0.35rem;
+    margin-top: 0.15rem;
+    border-top: 1px solid color-mix(in srgb, var(--p-content-border-color) 55%, transparent);
 }
 
-.ai-chat-input {
-    width: 100%;
+.ai-chat-composer-pill {
+    display: flex;
+    align-items: center;
+    gap: 0.15rem;
+    padding: 0.2rem 0.35rem 0.2rem 0.85rem;
+    border-radius: 9999px;
+    background: var(--p-surface-0);
+    border: 1px solid color-mix(in srgb, var(--p-content-border-color) 70%, transparent);
+    box-shadow: 0 1px 2px color-mix(in srgb, var(--p-text-color) 5%, transparent);
+}
+
+.ai-chat-composer-pill :deep(.p-inputtext) {
+    flex: 1 1 auto;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    outline: none;
+    padding-left: 0;
+    padding-right: 0.25rem;
+    color: var(--p-text-color);
+}
+
+.ai-chat-composer-pill :deep(.p-inputtext:enabled:focus) {
+    box-shadow: none;
+    border: none;
+}
+
+.ai-chat-composer-pill :deep(.p-inputtext::placeholder) {
+    color: color-mix(in srgb, var(--p-text-color) 68%, transparent);
+}
+
+.ai-chat-send :deep(.p-button-icon) {
+    font-size: 1rem;
+    color: var(--p-text-color);
+}
+
+/* Dark mode: bubbles and composer pill use charcoal surfaces (not white surface-0) */
+.my-app-dark .ai-chat-bubble,
+.my-app-dark .ai-chat-row--user .ai-chat-bubble,
+.my-app-dark .ai-chat-row--assistant .ai-chat-bubble {
+    background: var(--p-surface-800);
+    color: var(--p-text-color);
+    border-color: color-mix(in srgb, var(--p-surface-500) 45%, var(--p-surface-700) 55%);
+    box-shadow: 0 1px 2px color-mix(in srgb, black 35%, transparent);
+}
+
+.my-app-dark .ai-chat-composer-pill {
+    background: var(--p-surface-800);
+    border-color: color-mix(in srgb, var(--p-surface-500) 40%, var(--p-surface-700) 60%);
+    box-shadow: 0 1px 2px color-mix(in srgb, black 30%, transparent);
 }
 
 .ai-limit-body {
@@ -548,7 +657,78 @@ function onKeydown(e) {
 </style>
 
 <style>
-.ai-chat-dialog-content {
-    padding-top: 0.5rem !important;
+/* Dialog is portaled; target root/content by class added via pt + contentClass */
+.p-dialog.ai-chat-dialog-root {
+    overflow: hidden;
+}
+
+/* Compact height only when not maximized — inline max-height would override Prime's fullscreen */
+.p-dialog.ai-chat-dialog-root:not(.p-dialog-maximized) {
+    max-height: 78vh;
+}
+
+.p-dialog.ai-chat-dialog-root .p-dialog-header.ai-chat-dialog-header {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    padding-inline: 3rem;
+    border-bottom: none;
+}
+
+.p-dialog.ai-chat-dialog-root .p-dialog-header .ai-chat-dialog-title {
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--p-text-color);
+}
+
+.p-dialog.ai-chat-dialog-root .p-dialog-header .p-dialog-header-actions {
+    position: absolute;
+    right: 0.35rem;
+    top: 50%;
+    transform: translateY(-50%);
+    margin: 0;
+}
+
+.p-dialog.ai-chat-dialog-root .p-dialog-content.ai-chat-dialog-content {
+    padding-top: 0.35rem !important;
+    padding-bottom: 0.85rem !important;
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--p-surface-50) 90%, var(--p-primary-color) 10%) 0%,
+        color-mix(in srgb, var(--p-surface-100) 82%, var(--p-primary-color) 18%) 100%
+    );
+    border-radius: 0 0 12px 12px;
+}
+
+.my-app-dark .p-dialog.ai-chat-dialog-root .p-dialog-content.ai-chat-dialog-content {
+    background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--p-surface-900) 94%, var(--p-primary-color) 6%) 0%,
+        color-mix(in srgb, var(--p-surface-950) 90%, var(--p-surface-700) 10%) 100%
+    );
+}
+
+.p-dialog.ai-chat-dialog-root.p-dialog-maximized {
+    max-height: none !important;
+}
+
+.p-dialog.ai-chat-dialog-root.p-dialog-maximized .p-dialog-content.ai-chat-dialog-content {
+    border-radius: 0;
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none !important;
+    flex-grow: 1;
+}
+
+.p-dialog.ai-chat-dialog-root.p-dialog-maximized .ai-chat-wrap {
+    max-height: none !important;
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 100%;
 }
 </style>
