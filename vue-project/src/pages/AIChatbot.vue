@@ -339,7 +339,7 @@ function onComposerKeydown(e) {
                         <span class="ai-chat-greeting-help">How can I help you?</span>
                     </p>
                     <p class="ai-chat-greeting-note">
-                        Ask about your café data or business. Chat uses POST /api/chat on your server; the OpenAI key stays on the server only.
+                        Ask about your café data or business.
                     </p>
                 </div>
                 <div
